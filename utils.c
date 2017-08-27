@@ -17,7 +17,7 @@ int htoi(char a){
 	}
 }
 
-int hex2bytes(u8 *out, unsigned byte_len, const char *in, int critical){
+int hex2bytes(unsigned char *out, unsigned byte_len, const char *in, int critical){
 	if (strlen(in) != byte_len << 1){
 		fprintf(stderr, "%s: invalid input length, expecting %u, got %u.\n",
 			__FUNCTION__, (unsigned)byte_len << 1, (unsigned)strlen(in));
@@ -44,7 +44,7 @@ int hex2bytes(u8 *out, unsigned byte_len, const char *in, int critical){
 static char hexdump_buf[HEXDUMP_BUF_SIZE];
 // CAUTION, this always assume you have a buffer big enough
 const char *hexdump(const void *b, unsigned l, int space){
-	const u8 *p = (u8*)b;
+	const unsigned char *p = (unsigned char*)b;
 	char *out = hexdump_buf;
 	for(unsigned i = 0; i < l; ++i){
 		out += sprintf(out, "%02x", *p);

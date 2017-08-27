@@ -1,10 +1,8 @@
 
 #pragma once
 
-#include "common.h"
-
 // definition in sha1_16.c
-void sha1_16(u8 out[16], const u8 in[16]);
+void sha1_16(const unsigned char in[16], unsigned char out[16]);
 
 // definition in aes128.c
 
@@ -14,18 +12,18 @@ void aes_gen_tables(void);
 
 typedef struct {
 	unsigned char FSb[256];
-	uint32_t FT0[256];
-	uint32_t FT1[256];
-	uint32_t FT2[256];
-	uint32_t FT3[256];
+	unsigned int FT0[256];
+	unsigned int FT1[256];
+	unsigned int FT2[256];
+	unsigned int FT3[256];
 	unsigned char RSb[256];
-	uint32_t RT0[256];
-	uint32_t RT1[256];
-	uint32_t RT2[256];
-	uint32_t RT3[256];
-	uint32_t RCON[10];
+	unsigned int RT0[256];
+	unsigned int RT1[256];
+	unsigned int RT2[256];
+	unsigned int RT3[256];
+	unsigned int RCON[10];
 } AES_Tables;
 
-void aes_set_key_enc_128(uint32_t rk[RK_LEN], const unsigned char *key);
+void aes_set_key_enc_128(unsigned int rk[RK_LEN], const unsigned char *key);
 
-void aes_encrypt(const uint32_t rk[8], const unsigned char input[16], unsigned char output[16]);
+void aes_encrypt_128(const unsigned int rk[8], const unsigned char input[16], unsigned char output[16]);

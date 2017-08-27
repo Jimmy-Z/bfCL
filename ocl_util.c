@@ -5,6 +5,12 @@
 #include <CL/cl_ext.h>
 #include "ocl.h"
 
+#define STATIC_ASSERT(c) static_assert(c, #c)
+STATIC_ASSERT(sizeof(char) == sizeof(cl_char));
+STATIC_ASSERT(sizeof(int) == sizeof(cl_int));
+STATIC_ASSERT(sizeof(long long) == sizeof(cl_long));
+#undef STATIC_ASSERT
+
 static char ocl_err_msg_buf[0x40];
 
 const char * ocl_err_msg(cl_int error_code) {

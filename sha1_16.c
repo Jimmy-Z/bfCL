@@ -38,7 +38,7 @@ static const uint32_t
 	h3 = 0x10325476,
 	h4 = 0xC3D2E1F0;
 
-void sha1_16(unsigned char out[16], const unsigned char in[16]) {
+void sha1_16(const unsigned char in[16], unsigned char out[16]) {
 	uint32_t temp, W[16],
 		A = h0, B = h1, C = h2, D = h3, E = h4;
 	// only 16 bytes taken

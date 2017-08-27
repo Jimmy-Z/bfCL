@@ -20,6 +20,7 @@
 	*(uint32_t*)(b + i) = (n)
 
 // packed into a struct to be easier to pass to OpenCL
+// it's interesting they mix unsigned char with uint32_t
 AES_Tables AES_tables;
 // and aliases
 static unsigned char *FSb = AES_tables.FSb;
@@ -117,9 +118,7 @@ void aes_gen_tables( void )
     }
 }
 
-#define KEY_BITS 128
 #define RK_LEN 44
-#define NR 10 // for 128 bits keys
 
 // did a little counting to understand why buf is [68]
 // in set key, they generated:
@@ -177,7 +176,7 @@ void aes_set_key_enc_128(uint32_t rk[RK_LEN], const unsigned char *key) {
                  FT3[ ( Y2 >> 24 ) & 0xFF ];    \
 }
 
-void aes_encrypt( const uint32_t rk[RK_LEN],
+void aes_encrypt_128( const uint32_t rk[RK_LEN],
                                   const unsigned char input[16],
                                   unsigned char output[16] )
 {

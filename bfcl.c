@@ -6,6 +6,8 @@
 #include "crypto.h"
 #include "utils.h"
 
+extern AES_Tables AES_tables;
+
 // CAUTION: caller is responsible to free the buf
 char * read_source(const char *file_name) {
 	FILE * f = fopen(file_name, "rb");
@@ -18,8 +20,6 @@ char * read_source(const char *file_name) {
 	buf[size] = '\0';
 	return buf;
 }
-
-extern AES_Tables AES_tables;
 
 void sha1_16_test() {
 	cl_platform_id platform_id;
@@ -75,8 +75,8 @@ void sha1_16_test() {
 	get_hp_time(&t1);
 	printf("%d microseconds for data upload\n", (int)hp_time_diff(&t0, &t1));
 
-	OCL_ASSERT(clSetKernelArg(kern_sha1_16, 0, sizeof(cl_mem), &mem_out));
-	OCL_ASSERT(clSetKernelArg(kern_sha1_16, 1, sizeof(cl_mem), &mem_in));
+	OCL_ASSERT(clSetKernelArg(kern_sha1_16, 0, sizeof(cl_mem), &mem_in));
+	OCL_ASSERT(clSetKernelArg(kern_sha1_16, 1, sizeof(cl_mem), &mem_out));
 
 	size_t local;
 	OCL_ASSERT(clGetKernelWorkGroupInfo(kern_sha1_16, device_id, CL_KERNEL_WORK_GROUP_SIZE, sizeof(local), &local, NULL));
@@ -95,7 +95,7 @@ void sha1_16_test() {
 
 	get_hp_time(&t0);
 	for (unsigned offset = 0; offset < io_buf_len; offset += item_size) {
-		// sha1_16 works in place
+		// sha1_16 can works in place
 		sha1_16(buf_in + offset, buf_in + offset);
 	}
 	get_hp_time(&t1);
@@ -133,11 +133,11 @@ void aes128_test() {
 
 	aes_gen_tables();
 
-	uint32_t aes_rk[RK_LEN];
+	unsigned aes_rk[RK_LEN];
 
 	aes_set_key_enc_128(aes_rk, test_key);
-	aes_encrypt(aes_rk, test_src, test_out);
-	aes_encrypt(aes_rk, test_src + 16, test_out + 16);
+	aes_encrypt_128(aes_rk, test_src, test_out);
+	aes_encrypt_128(aes_rk, test_src + 16, test_out + 16);
 	puts(hexdump(test_out, 32, 1));
 }
 

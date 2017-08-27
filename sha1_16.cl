@@ -28,8 +28,8 @@ typedef unsigned int uint32_t;
 #endif
 
 __kernel void sha1_16(
-	__global unsigned char *out,
-	__global const unsigned char *in) {
+	__global const unsigned char *in,
+	__global unsigned char *out) {
 
 const uint32_t
 	h0 = 0x67452301,
