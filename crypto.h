@@ -8,6 +8,8 @@ void sha1_16(const unsigned char in[16], unsigned char out[16]);
 
 #define RK_LEN 44 //round key length
 
+#define AES_BLOCK_SIZE 16
+
 void aes_gen_tables(void);
 
 typedef struct {
