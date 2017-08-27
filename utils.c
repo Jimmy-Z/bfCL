@@ -55,3 +55,29 @@ const char *hexdump(const void *b, unsigned l, int space){
 	}
 	return hexdump_buf;
 }
+
+#ifdef _WIN32
+
+long long hp_time_diff(LARGE_INTEGER *pt0, LARGE_INTEGER *pt1) {
+	LARGE_INTEGER freq;
+	QueryPerformanceFrequency(&freq);
+	long long diff = pt1->QuadPart - pt0->QuadPart;
+	diff *= 1000000;
+	diff /= freq.QuadPart;
+	return diff;
+}
+
+#else
+
+void get_hp_time(struct timeval *pt) {
+	gettimeofday(pt, NULL);
+}
+
+long long hp_time_diff(struct timeval *pt0, struct timeval *pt1) {
+	long long diff = pt1.tv_sec - pt0.tv_sec;
+	diff *= 1000000;
+	diff += pt1.tv_usec - pt0.tv_usec;
+	return diff;
+}
+
+#endif

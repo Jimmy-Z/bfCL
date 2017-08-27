@@ -160,21 +160,21 @@ void ocl_get_device(cl_platform_id *p_platform_id, cl_device_id *p_device_id) {
 		OCL_Platform * platforms = ocl_info(&num_platforms, 0);
 		cl_uint pl_idx = 0;
 		cl_uint dev_idx = 0;
-		cl_uint max_max_compute_units = 0;
+		cl_ulong maximum = 0;
 		// for simplicity, we choose only one device
 		for (cl_uint i = 0; i < num_platforms; ++i) {
 			OCL_Device *devices = platforms[i].devices;
 			for (cl_uint j = 0; j < platforms[i].num_devices; ++j) {
 				if (devices[j].type == CL_DEVICE_TYPE_GPU
 					&& devices[j].c_avail == CL_TRUE
-					&& devices[j].max_compute_units > max_max_compute_units) {
-					max_max_compute_units = devices[j].max_compute_units;
+					&& (cl_ulong)devices[j].max_compute_units * devices[j].max_work_group_size > maximum) {
+					maximum = devices[j].max_compute_units;
 					pl_idx = i;
 					dev_idx = j;
 				}
 			}
 		}
-		if (max_max_compute_units > 0) {
+		if (maximum > 0) {
 			printf("selected device \"%s\" on platform \"%s\"\n",
 				platforms[pl_idx].devices[dev_idx].name, platforms[pl_idx].name);
 			*p_platform_id = platforms[pl_idx].id;

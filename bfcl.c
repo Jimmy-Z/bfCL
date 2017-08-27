@@ -2,7 +2,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-// #include <sys/time.h>
 #include "ocl.h"
 #include "crypto.h"
 #include "utils.h"
@@ -32,10 +31,15 @@ void sha1_16_test() {
 	cl_context context = OCL_ASSERT2(clCreateContext(0, 1, &device_id, NULL, NULL, &err));
 	cl_command_queue command_queue = OCL_ASSERT2(clCreateCommandQueue(context, device_id, 0, &err));
 
+	HPTime t0, t1;
+
 	char *source = read_source("sha1_16.cl");
+	get_hp_time(&t0);
 	cl_program program = OCL_ASSERT2(clCreateProgramWithSource(context, 1, (const char**)&source, NULL, &err));
-	free(source);
 	err = clBuildProgram(program, 0, NULL, NULL, NULL, NULL);
+	get_hp_time(&t1);
+	printf("%d microseconds for build & compile\n", (int)hp_time_diff(&t0, &t1));
+	free(source);
 	if (err != CL_SUCCESS) {
 		fprintf(stderr, "failed to build program, error: %s, build log:\n", ocl_err_msg(err));
 		size_t len;
@@ -55,14 +59,20 @@ void sha1_16_test() {
 	const size_t io_buf_len = num_items * item_size;
 	cl_uchar *buf_in = malloc(io_buf_len);
 	srand(2501);
+	get_hp_time(&t0);
 	for (unsigned i = 0; i < io_buf_len; ++i) {
 		buf_in[i] = ((unsigned)rand() << 8) / RAND_MAX;
 	}
+	get_hp_time(&t1);
+	printf("%d microseconds for preparing test data\n", (int)hp_time_diff(&t0, &t1));
 
 	cl_mem mem_in = OCL_ASSERT2(clCreateBuffer(context, CL_MEM_READ_ONLY, io_buf_len, NULL, &err));
 	cl_mem mem_out = OCL_ASSERT2(clCreateBuffer(context, CL_MEM_WRITE_ONLY, io_buf_len, NULL, &err));
 
+	get_hp_time(&t0);
 	OCL_ASSERT(clEnqueueWriteBuffer(command_queue, mem_in, CL_TRUE, 0, io_buf_len, buf_in, 0, NULL, NULL));
+	get_hp_time(&t1);
+	printf("%d microseconds for data upload\n", (int)hp_time_diff(&t0, &t1));
 
 	OCL_ASSERT(clSetKernelArg(kern_sha1_16, 0, sizeof(cl_mem), &mem_out));
 	OCL_ASSERT(clSetKernelArg(kern_sha1_16, 1, sizeof(cl_mem), &mem_in));
@@ -70,17 +80,25 @@ void sha1_16_test() {
 	size_t local;
 	OCL_ASSERT(clGetKernelWorkGroupInfo(kern_sha1_16, device_id, CL_KERNEL_WORK_GROUP_SIZE, sizeof(local), &local, NULL));
 
+	get_hp_time(&t0);
 	OCL_ASSERT(clEnqueueNDRangeKernel(command_queue, kern_sha1_16, 1, NULL, &num_items, &local, 0, NULL, NULL));
-
 	clFinish(command_queue);
+	get_hp_time(&t1);
+	printf("%d microseconds for OpenCL\n", (int)hp_time_diff(&t0, &t1));
 
 	cl_uchar *buf_out = malloc(io_buf_len);
+	get_hp_time(&t0);
 	OCL_ASSERT(clEnqueueReadBuffer(command_queue, mem_out, CL_TRUE, 0, io_buf_len, buf_out, 0, NULL, NULL));
+	get_hp_time(&t1);
+	printf("%d microseconds for data download\n", (int)hp_time_diff(&t0, &t1));
 
+	get_hp_time(&t0);
 	for (unsigned offset = 0; offset < io_buf_len; offset += item_size) {
 		// sha1_16 works in place
 		sha1_16(buf_in + offset, buf_in + offset);
 	}
+	get_hp_time(&t1);
+	printf("%d microseconds for C(single thread)\n", (int)hp_time_diff(&t0, &t1));
 
 	if (memcmp(buf_in, buf_out, io_buf_len)) {
 		printf("%s: verification failed\n", __FUNCTION__);
@@ -106,11 +124,14 @@ void sha1_16_test() {
 }
 
 int main(int argc, const char *argv[]) {
-	if (argc == 2 && !strcmp(argv[1], "sha1_16_test")) {
-		sha1_16_test();
-	} else {
+	if (argc == 2 && !strcmp(argv[1], "info")) {
 		cl_uint num_platforms;
 		ocl_info(&num_platforms, 1);
+	} else {
+		sha1_16_test();
+#ifdef _WIN32
+		system("pause");
+#endif
 		return 0;
 	}
 }

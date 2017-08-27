@@ -1,16 +1,8 @@
 
-/* SHA1 code dug out from mbed TLS 2.5.1
- * the sha1_16 only supports 16 bytes input and only spit out the first 16 bytes
- */
-
-/* also looked at OpenSSL SHA1
- * the C implementation is wrapped in some crazy macro
- * they have multiple ASM implementations including AVX(2)/SHAEXT, impressive!
- * BTW about SHAEXT, Intel has SHAEXT document dated back to Jul 2013
- * but only first implemented in Goldmont(Atom) in Apr 2016
- * but strangely not available on Kaby Lake(Oct 2016) and Coffee Lake(Oct 2017)
- * for Intel desktop processor we'd wait until Cannonlake(expected H1 2018)
- * AMD supported this in Ryzen(Feb 2017)
+/* sha1_16
+ * specialized to only take 16 bytes input and spit out the first 16 bytes of the digest
+ * 
+ * adapted a tiny bit for OpenCL, see "sha1_16.c"
  */
 
 typedef unsigned int uint32_t;
@@ -58,9 +50,7 @@ const uint32_t
 	GET_UINT32_BE(W[3], in, offset + 12);
 	W[4] = 0x80000000u; W[5] = 0; W[6] = 0; W[7] = 0;
 	W[8] = 0; W[9] = 0; W[10] = 0; W[11] = 0;
-	W[12] = 0; W[13] = 0; W[14] = 0; W[15] = 0x80;
-
-	// puts(hexdump(W, 64, 1));
+	W[12] = 0; W[13] = 0; W[14] = 0; W[15] = 0x80u;
 
 #define S(x,n) ((x << n) | ((x & 0xFFFFFFFF) >> (32 - n)))
 
@@ -188,7 +178,6 @@ const uint32_t
 #undef R
 #undef P
 
-	// we only needs 16 bytes
 	A += h0;
 	B += h1;
 	C += h2;
@@ -199,4 +188,3 @@ const uint32_t
 	PUT_UINT32_BE(C, out, offset + 8);
 	PUT_UINT32_BE(D, out, offset + 12);
 }
-
