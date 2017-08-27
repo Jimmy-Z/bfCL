@@ -4,10 +4,10 @@
 // a crude cross Windows/POSIX high precision timer
 #ifdef _WIN32
 #include <Windows.h>
-typedef LARGE_INTEGER HPTime;
+typedef LARGE_INTEGER HP_Time;
 #else
 #include <sys/time.h>
-typedef struct timeval HPTime;
+typedef struct timeval HP_Time;
 #endif
 
 #include "common.h"
@@ -15,10 +15,10 @@ typedef struct timeval HPTime;
 #ifdef _WIN32
 #define get_hp_time QueryPerformanceCounter
 #else
-void get_hp_time(HPTime *pt);
+void get_hp_time(HP_Time *pt);
 #endif
 
-long long hp_time_diff(HPTime *pt0, HPTime *pt1);
+long long hp_time_diff(HP_Time *pt0, HP_Time *pt1);
 
 int hex2bytes(u8 *out, unsigned byte_len, const char *in, int critical);
 

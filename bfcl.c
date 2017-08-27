@@ -19,6 +19,7 @@ char * read_source(const char *file_name) {
 	return buf;
 }
 
+extern AES_Tables AES_tables;
 
 void sha1_16_test() {
 	cl_platform_id platform_id;
@@ -31,7 +32,7 @@ void sha1_16_test() {
 	cl_context context = OCL_ASSERT2(clCreateContext(0, 1, &device_id, NULL, NULL, &err));
 	cl_command_queue command_queue = OCL_ASSERT2(clCreateCommandQueue(context, device_id, 0, &err));
 
-	HPTime t0, t1;
+	HP_Time t0, t1;
 
 	char *source = read_source("sha1_16.cl");
 	get_hp_time(&t0);
@@ -123,16 +124,37 @@ void sha1_16_test() {
 	clReleaseContext(context);
 }
 
+void aes128_test() {
+	// TODO: test against OpenSSL results
+	unsigned char test_key[16] = { 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8 };
+	unsigned char test_src[32] = { 8, 7, 6, 5, 4, 3, 2, 1, 1, 2, 3, 4, 5, 6, 7, 8,
+		1, 2, 3, 4, 5, 6, 7, 8, 8, 7, 6, 5, 4, 3, 2, 1 };
+	unsigned char test_out[32];
+
+	aes_gen_tables();
+
+	uint32_t aes_rk[RK_LEN];
+
+	aes_set_key_enc_128(aes_rk, test_key);
+	aes_encrypt(aes_rk, test_src, test_out);
+	aes_encrypt(aes_rk, test_src + 16, test_out + 16);
+	puts(hexdump(test_out, 32, 1));
+}
+
 int main(int argc, const char *argv[]) {
 	if (argc == 2 && !strcmp(argv[1], "info")) {
 		cl_uint num_platforms;
 		ocl_info(&num_platforms, 1);
-	} else {
+	}else if (argc == 2 && !strcmp(argv[1], "aes128ecb")) {
+		aes128_test();
+	} else if (argc == 1){
 		sha1_16_test();
 #ifdef _WIN32
 		system("pause");
 #endif
-		return 0;
+	} else {
+		printf("invalid args\n");
 	}
+	return 0;
 }
 
