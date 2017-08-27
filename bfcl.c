@@ -2,11 +2,33 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <immintrin.h>
 #include "ocl.h"
 #include "crypto.h"
 #include "utils.h"
 
+#ifdef __GNUC__
+#include <cpuid.h>
+#elif _MSC_VER
+#include <intrin.h>
+#endif
+
 extern AES_Tables aes_tables;
+
+int cpu_has_rdrand() {
+#if __GNUC__
+	unsigned a, b, c, d;
+	__get_cpuid(1, &a, &b, &c, &d);
+	return c & bit_RDRND;
+#elif _MSC_VER
+	int regs[4];
+	__cpuid(regs, 1);
+	return regs[2] & (1<<30);
+#else
+	// ICL only?
+	return _may_i_use_cpu_feature(_FEATURE_RDRND);
+#endif
+}
 
 // CAUTION: caller is responsible to free the buf
 char * read_source(const char *file_name) {
@@ -38,17 +60,17 @@ void dump_to_file(const char *file_name, const void *buf, size_t len) {
 #define TEST_SHA1_16		1
 #define TEST_AES_128_ECB	2
 
-void ocl_test(cl_device_id device_id, int test_case) {
+#define BLOCK_SIZE 0x10
+#define NUM_BLOCKS (1 << 24)
+#define BLOCKS_PER_ITEM 1
+
+void ocl_test(cl_device_id device_id, cl_uchar *buf_in, int test_case) {
 	cl_int err;
 	cl_context context = OCL_ASSERT2(clCreateContext(0, 1, &device_id, NULL, NULL, &err));
 	cl_command_queue command_queue = OCL_ASSERT2(clCreateCommandQueue(context, device_id, 0, &err));
 
 	HP_Time t0, t1;
 	long long td;
-
-#define BLOCK_SIZE 0x10
-#define NUM_BLOCKS (1 << 24)
-#define BLOCKS_PER_ITEM 1
 
 	const size_t num_items = NUM_BLOCKS / BLOCKS_PER_ITEM;
 	const size_t io_buf_len = NUM_BLOCKS * BLOCK_SIZE;
@@ -86,23 +108,15 @@ void ocl_test(cl_device_id device_id, int test_case) {
 
 	cl_kernel kernel = OCL_ASSERT2(clCreateKernel(program, test_name, &err));
 
-	cl_uchar *buf_in = malloc(io_buf_len);
 	cl_uchar key[16];
 	unsigned int aes_rk[RK_LEN];
-	get_hp_time(&t0);
-	srand(2501);
-	for (unsigned i = 0; i < io_buf_len; ++i) {
-		buf_in[i] = ((unsigned)rand() << 8) / RAND_MAX;
-	}
 	if (test_case == TEST_AES_128_ECB) {
 		aes_gen_tables();
 		for (unsigned i = 0; i < 16; ++i) {
-			key[i] = ((unsigned)rand() << 8) / RAND_MAX;
+			key[i] = rand() & 0xff;
 		}
 		printf("Key: %s\n", hexdump(key, 16, 0));
 	}
-	get_hp_time(&t1);
-	printf("%d microseconds for preparing test data\n", (int)hp_time_diff(&t0, &t1));
 
 	cl_mem mem_in = OCL_ASSERT2(clCreateBuffer(context, CL_MEM_READ_ONLY, io_buf_len, NULL, &err));
 	cl_mem mem_out = OCL_ASSERT2(clCreateBuffer(context, CL_MEM_WRITE_ONLY, io_buf_len, NULL, &err));
@@ -133,7 +147,7 @@ void ocl_test(cl_device_id device_id, int test_case) {
 	printf("local work size: %u\n", (unsigned)local);
 
 	get_hp_time(&t0);
-	// appearantly, settiing local work size to NULL doesn't affect performance, at least in this kind of work
+	// apparently, setting local work size to NULL doesn't affect performance, at least in this kind of work
 	OCL_ASSERT(clEnqueueNDRangeKernel(command_queue, kernel, 1, NULL, &num_items, &local, 0, NULL, NULL));
 	// OCL_ASSERT(clEnqueueNDRangeKernel(command_queue, kernel, 1, NULL, &num_items, NULL, 0, NULL, NULL));
 	clFinish(command_queue);
@@ -168,7 +182,7 @@ void ocl_test(cl_device_id device_id, int test_case) {
 	}
 	get_hp_time(&t1);
 	td = hp_time_diff(&t0, &t1);
-	printf("%d microseconds for C(single thread), %.3f MB/s\n", (int)td, io_buf_len * 1.0f / td);
+	printf("%d microseconds for C(single thread), %.2f MB/s\n", (int)td, io_buf_len * 1.0f / td);
 
 	if (memcmp(buf_in, buf_out, io_buf_len)) {
 		printf("%s: verification failed\n", test_name);
@@ -184,7 +198,7 @@ void ocl_test(cl_device_id device_id, int test_case) {
 		printf("%s: succeed\n", test_name);
 	}
 
-	free(buf_in); free(buf_out);
+	free(buf_out);
 	clReleaseMemObject(mem_in);
 	clReleaseMemObject(mem_out);
 	clReleaseProgram(program);
@@ -193,31 +207,10 @@ void ocl_test(cl_device_id device_id, int test_case) {
 	clReleaseContext(context);
 }
 
-void aes128_test() {
-	// TODO: test against OpenSSL results
-	unsigned char test_key[16] = { 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8 };
-	unsigned char test_src[32] = { 8, 7, 6, 5, 4, 3, 2, 1, 1, 2, 3, 4, 5, 6, 7, 8,
-		1, 2, 3, 4, 5, 6, 7, 8, 8, 7, 6, 5, 4, 3, 2, 1 };
-	unsigned char test_out[32];
-
-	aes_gen_tables();
-
-	unsigned aes_rk[RK_LEN];
-
-	aes_set_key_enc_128(aes_rk, test_key);
-	aes_encrypt_128(aes_rk, test_src, test_out);
-	aes_encrypt_128(aes_rk, test_src + 16, test_out + 16);
-	puts(hexdump(test_key, 16, 0));
-	puts(hexdump(test_src, 32, 0));
-	puts(hexdump(test_out, 32, 0));
-}
-
 int main(int argc, const char *argv[]) {
 	if (argc == 2 && !strcmp(argv[1], "info")) {
 		cl_uint num_platforms;
 		ocl_info(&num_platforms, 1);
-	}else if (argc == 2 && !strcmp(argv[1], "aes_c")) {
-		aes128_test();
 	} else if (argc == 1){
 		cl_platform_id platform_id;
 		cl_device_id device_id;
@@ -225,8 +218,54 @@ int main(int argc, const char *argv[]) {
 		if (platform_id == NULL || device_id == NULL) {
 			return -1;
 		}
-		ocl_test(device_id, TEST_SHA1_16);
-		ocl_test(device_id, TEST_AES_128_ECB);
+
+		cl_uchar *buf_in = malloc(BLOCK_SIZE * NUM_BLOCKS);
+		srand(2501);
+		HP_Time t0, t1; long long td;
+		get_hp_time(&t0);
+		if(!cpu_has_rdrand()){
+			// ~190 MB/s @ X230, ~200 without the success check
+			printf("randomize source buffer using RDRAND\n");
+			unsigned long long *p = (unsigned long long *)buf_in;
+			unsigned long long *p_end = (unsigned long long *)(buf_in + BLOCK_SIZE * NUM_BLOCKS);
+			int success = 1;
+			while (p < p_end) {
+				success &= _rdrand64_step(p++);
+			}
+			if (!success) {
+				printf("RDRND failed\n");
+				exit(-1);
+			}
+		}else {
+			printf("randomize source buffer using AES OFB\n");
+			// rand() & 0xff is about ~60 MB/s @ X230
+			// it's worse than that AES single thread C, so OFB it is
+			// ~240 MB/s, even faster than RDRAND
+			srand(2501);
+			unsigned int aes_rk[RK_LEN];
+			unsigned char key_iv[16 * 2];
+			for (unsigned i = 0; i < 16 * 2; ++i) {
+				key_iv[i] = rand() & 0xff;
+			}
+			aes_set_key_enc_128(aes_rk, key_iv);
+			aes_encrypt_128(aes_rk, key_iv + 16, buf_in);
+			unsigned char *p_in = buf_in, *p_out = buf_in + 16,
+				*p_end = buf_in + BLOCK_SIZE * NUM_BLOCKS;
+			while (p_out < p_end) {
+				aes_encrypt_128(aes_rk, p_in, p_out);
+				p_in = p_out;
+				p_out += 16;
+			}
+		}
+		get_hp_time(&t1);
+		td = hp_time_diff(&t0, &t1);
+		printf("%d microseconds for preparing test data, %.2f MB/s\n",
+			(int)td, BLOCK_SIZE * NUM_BLOCKS * 1.0f / td);
+
+		ocl_test(device_id, buf_in, TEST_SHA1_16);
+		ocl_test(device_id, buf_in, TEST_AES_128_ECB);
+
+		free(buf_in); 
 #ifdef _WIN32
 		system("pause");
 #endif
