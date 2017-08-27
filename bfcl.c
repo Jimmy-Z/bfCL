@@ -6,7 +6,7 @@
 #include "crypto.h"
 #include "utils.h"
 
-extern AES_Tables AES_tables;
+extern AES_Tables aes_tables;
 
 // CAUTION: caller is responsible to free the buf
 char * read_source(const char *file_name) {
@@ -25,16 +25,20 @@ char * read_source(const char *file_name) {
 	return buf;
 }
 
+void dump_to_file(const char *file_name, const void *buf, size_t len) {
+	FILE *f = fopen(file_name, "wb");
+	if (f == NULL) {
+		printf("can't open file to write: %s\n", file_name);
+		return;
+	}
+	fwrite(buf, len, 1, f);
+	fclose(f);
+}
+
 #define TEST_SHA1_16		1
 #define TEST_AES_128_ECB	2
 
-void ocl_test(int test_case) {
-	cl_platform_id platform_id;
-	cl_device_id device_id;
-	ocl_get_device(&platform_id, &device_id);
-	if (platform_id == NULL || device_id == NULL) {
-		return;
-	}
+void ocl_test(cl_device_id device_id, int test_case) {
 	cl_int err;
 	cl_context context = OCL_ASSERT2(clCreateContext(0, 1, &device_id, NULL, NULL, &err));
 	cl_command_queue command_queue = OCL_ASSERT2(clCreateCommandQueue(context, device_id, 0, &err));
@@ -95,7 +99,7 @@ void ocl_test(int test_case) {
 		for (unsigned i = 0; i < 16; ++i) {
 			key[i] = ((unsigned)rand() << 8) / RAND_MAX;
 		}
-		aes_set_key_enc_128(aes_rk, key);
+		printf("Key: %s\n", hexdump(key, 16, 0));
 	}
 	get_hp_time(&t1);
 	printf("%d microseconds for preparing test data\n", (int)hp_time_diff(&t0, &t1));
@@ -111,7 +115,7 @@ void ocl_test(int test_case) {
 	get_hp_time(&t0);
 	OCL_ASSERT(clEnqueueWriteBuffer(command_queue, mem_in, CL_TRUE, 0, io_buf_len, buf_in, 0, NULL, NULL));
 	if (test_case == TEST_AES_128_ECB) {
-		OCL_ASSERT(clEnqueueWriteBuffer(command_queue, mem_tables, CL_TRUE, 0, sizeof(AES_Tables), &AES_tables, 0, NULL, NULL));
+		OCL_ASSERT(clEnqueueWriteBuffer(command_queue, mem_tables, CL_TRUE, 0, sizeof(AES_Tables), &aes_tables, 0, NULL, NULL));
 		OCL_ASSERT(clEnqueueWriteBuffer(command_queue, mem_key, CL_TRUE, 0, 16, key, 0, NULL, NULL));
 	}
 	get_hp_time(&t1);
@@ -143,6 +147,11 @@ void ocl_test(int test_case) {
 	get_hp_time(&t1);
 	printf("%d microseconds for data download\n", (int)hp_time_diff(&t0, &t1));
 
+	/*
+	dump_to_file("r:/test_aes_in.bin", buf_in, io_buf_len);
+	dump_to_file("r:/test_aes_out.bin", buf_out, io_buf_len);
+	*/
+
 	get_hp_time(&t0);
 	if (test_case == TEST_SHA1_16) {
 		for (unsigned offset = 0; offset < io_buf_len; offset += BLOCK_SIZE) {
@@ -150,6 +159,10 @@ void ocl_test(int test_case) {
 		}
 	} else {
 		for (unsigned offset = 0; offset < io_buf_len; offset += BLOCK_SIZE) {
+			// setting the same key over and over is stupid
+			// yet we still do it to keep it in line with the OpenCL port
+			// otherwise we can't test the set key in OpenCL
+			aes_set_key_enc_128(aes_rk, key);
 			aes_encrypt_128(aes_rk, buf_in + offset, buf_in + offset);
 		}
 	}
@@ -194,18 +207,26 @@ void aes128_test() {
 	aes_set_key_enc_128(aes_rk, test_key);
 	aes_encrypt_128(aes_rk, test_src, test_out);
 	aes_encrypt_128(aes_rk, test_src + 16, test_out + 16);
-	puts(hexdump(test_out, 32, 1));
+	puts(hexdump(test_key, 16, 0));
+	puts(hexdump(test_src, 32, 0));
+	puts(hexdump(test_out, 32, 0));
 }
 
 int main(int argc, const char *argv[]) {
 	if (argc == 2 && !strcmp(argv[1], "info")) {
 		cl_uint num_platforms;
 		ocl_info(&num_platforms, 1);
-	}else if (argc == 2 && !strcmp(argv[1], "aes128ecb")) {
+	}else if (argc == 2 && !strcmp(argv[1], "aes_c")) {
 		aes128_test();
 	} else if (argc == 1){
-		ocl_test(TEST_SHA1_16);
-		ocl_test(TEST_AES_128_ECB);
+		cl_platform_id platform_id;
+		cl_device_id device_id;
+		ocl_get_device(&platform_id, &device_id);
+		if (platform_id == NULL || device_id == NULL) {
+			return -1;
+		}
+		ocl_test(device_id, TEST_SHA1_16);
+		ocl_test(device_id, TEST_AES_128_ECB);
 #ifdef _WIN32
 		system("pause");
 #endif

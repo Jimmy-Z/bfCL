@@ -21,19 +21,27 @@
 
 // packed into a struct to be easier to pass to OpenCL
 // it's interesting they mix unsigned char with uint32_t
-AES_Tables AES_tables;
+AES_Tables aes_tables;
 // and aliases
-static unsigned char *FSb = AES_tables.FSb;
-static uint32_t *FT0 = AES_tables.FT0;
-static uint32_t *FT1 = AES_tables.FT1;
-static uint32_t *FT2 = AES_tables.FT2;
-static uint32_t *FT3 = AES_tables.FT3;
+static unsigned char *FSb = aes_tables.FSb;
+static uint32_t *FT0 = aes_tables.FT0;
+static uint32_t *FT1 = aes_tables.FT1;
+static uint32_t *FT2 = aes_tables.FT2;
+static uint32_t *FT3 = aes_tables.FT3;
+/*
 static unsigned char *RSb = AES_tables.RSb;
 static uint32_t *RT0 = AES_tables.RT0;
 static uint32_t *RT1 = AES_tables.RT1;
 static uint32_t *RT2 = AES_tables.RT2;
 static uint32_t *RT3 = AES_tables.RT3;
-static uint32_t *RCON = AES_tables.RCON;
+*/
+static unsigned char RSb[256];
+static uint32_t RT0[256];
+static uint32_t RT1[256];
+static uint32_t RT2[256];
+static uint32_t RT3[256];
+
+static uint32_t *RCON = aes_tables.RCON;
 
 /*
  * Tables generation code

@@ -178,30 +178,34 @@ void sha1_16(const uint32_t *in, uint32_t *out){
 
 // cl doesn't have include, keep this identical to crypto.h
 typedef struct {
-	unsigned char fSb[256];
-	unsigned int fT0[256];
-	unsigned int fT1[256];
-	unsigned int fT2[256];
-	unsigned int fT3[256];
-	unsigned char rSb[256];
-	unsigned int rT0[256];
-	unsigned int rT1[256];
-	unsigned int rT2[256];
-	unsigned int rT3[256];
-	unsigned int rCON[10];
+	unsigned char FSb[256];
+	unsigned int FT0[256];
+	unsigned int FT1[256];
+	unsigned int FT2[256];
+	unsigned int FT3[256];
+	/*
+	unsigned char RSb[256];
+	unsigned int RT0[256];
+	unsigned int RT1[256];
+	unsigned int RT2[256];
+	unsigned int RT3[256];
+	*/
+	unsigned int RCON[10];
 } AES_Tables;
-// I hope this doesn't induce any performace penalties
-#define FSb p_tables->fSb
-#define FT0 p_tables->fT0
-#define FT1 p_tables->fT1
-#define FT2 p_tables->fT2
-#define FT3 p_tables->fT3
-#define RSb p_tables->rSb
-#define RT0 p_tables->rT0
-#define RT1 p_tables->rT1
-#define RT2 p_tables->rT2
-#define RT3 p_tables->rT3
-#define RCON p_tables->rCON
+// I hope this doesn't induce any performance penalties
+#define FSb p_tables->FSb
+#define FT0 p_tables->FT0
+#define FT1 p_tables->FT1
+#define FT2 p_tables->FT2
+#define FT3 p_tables->FT3
+/*
+#define RSb p_tables->RSb
+#define RT0 p_tables->RT0
+#define RT1 p_tables->RT1
+#define RT2 p_tables->RT2
+#define RT3 p_tables->RT3
+*/
+#define RCON p_tables->RCON
 
 /* OpenCL doesn't allow this kind of pointer cast
 #define GET_UINT32_LE(n, b, i) \
