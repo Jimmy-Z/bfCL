@@ -13,11 +13,9 @@
 #include <intrin.h>
 #endif
 
-extern AES_Tables aes_tables;
-
 int cpu_has_rdrand() {
 #if __GNUC__
-	unsigned a, b, c, d;
+	unsigned a = 0, b = 0, c = 0, d = 0;
 	__get_cpuid(1, &a, &b, &c, &d);
 	return c & bit_RDRND;
 #elif _MSC_VER
@@ -31,20 +29,25 @@ int cpu_has_rdrand() {
 }
 
 // CAUTION: caller is responsible to free the buf
-char * read_source(const char *file_name) {
+char * read_file(const char *file_name, size_t *p_size) {
 	FILE * f = fopen(file_name, "rb");
 	if (f == NULL) {
 		printf("can't read file: %s", file_name);
 		exit(-1);
 	}
 	fseek(f, 0, SEEK_END);
-	long size = ftell(f);
-	char * buf = malloc(size + 1);
+	*p_size = ftell(f);
+	char * buf = malloc(*p_size);
 	fseek(f, 0, SEEK_SET);
-	fread(buf, size, 1, f);
+	fread(buf, *p_size, 1, f);
 	fclose(f);
-	buf[size] = '\0';
 	return buf;
+}
+
+void read_files(unsigned num_files, const char *file_names[], char *ptrs[], size_t sizes[]) {
+	for (unsigned i = 0; i < num_files; ++i) {
+		ptrs[i] = read_file(file_names[i], &sizes[i]);
+	}
 }
 
 void dump_to_file(const char *file_name, const void *buf, size_t len) {
@@ -75,16 +78,24 @@ void ocl_test(cl_device_id device_id, cl_uchar *buf_in, int test_case) {
 	const size_t num_items = NUM_BLOCKS / BLOCKS_PER_ITEM;
 	const size_t io_buf_len = NUM_BLOCKS * BLOCK_SIZE;
 
-	char *source = read_source("kernel.c");
+	const char *source_names[] = { "cl/sha1_16.cl", "cl/aes_tables.cl", "cl/aes_128.cl", "cl/kernels.cl" };
+	const unsigned num_sources = sizeof(source_names) / sizeof(char *);
+	char *sources[sizeof(source_names) / sizeof(char *)];
+	size_t source_sizes[sizeof(source_names) / sizeof(char *)];
+	read_files(num_sources, source_names, sources, source_sizes);
+
 	get_hp_time(&t0);
-	cl_program program = OCL_ASSERT2(clCreateProgramWithSource(context, 1, (const char**)&source, NULL, &err));
+	// WTF? GCC complains if I pass char ** in to a function expecting const char **?
+	cl_program program = OCL_ASSERT2(clCreateProgramWithSource(context, num_sources, (const char **)sources, source_sizes, &err));
 	char options[0x100];
 	sprintf(options, "-DBLOCKS_PER_ITEM=%d", BLOCKS_PER_ITEM);
 	printf("compiler options: %s\n", options);
 	err = clBuildProgram(program, 0, NULL, options, NULL, NULL);
 	get_hp_time(&t1);
 	printf("%d microseconds for compile\n", (int)hp_time_diff(&t0, &t1));
-	free(source);
+	for (unsigned i = 0; i < num_sources; ++i) {
+		free(sources[i]);
+	}
 	if (err != CL_SUCCESS) {
 		fprintf(stderr, "failed to build program, error: %s, build log:\n", ocl_err_msg(err));
 		size_t len;
@@ -120,16 +131,14 @@ void ocl_test(cl_device_id device_id, cl_uchar *buf_in, int test_case) {
 
 	cl_mem mem_in = OCL_ASSERT2(clCreateBuffer(context, CL_MEM_READ_ONLY, io_buf_len, NULL, &err));
 	cl_mem mem_out = OCL_ASSERT2(clCreateBuffer(context, CL_MEM_WRITE_ONLY, io_buf_len, NULL, &err));
-	cl_mem mem_tables, mem_key;
+	cl_mem mem_key;
 	if (test_case == TEST_AES_128_ECB) {
-		mem_tables = OCL_ASSERT2(clCreateBuffer(context, CL_MEM_READ_ONLY, sizeof(AES_Tables), NULL, &err));
 		mem_key = OCL_ASSERT2(clCreateBuffer(context, CL_MEM_READ_ONLY, 16, NULL, &err));
 	}
 
 	get_hp_time(&t0);
 	OCL_ASSERT(clEnqueueWriteBuffer(command_queue, mem_in, CL_TRUE, 0, io_buf_len, buf_in, 0, NULL, NULL));
 	if (test_case == TEST_AES_128_ECB) {
-		OCL_ASSERT(clEnqueueWriteBuffer(command_queue, mem_tables, CL_TRUE, 0, sizeof(AES_Tables), &aes_tables, 0, NULL, NULL));
 		OCL_ASSERT(clEnqueueWriteBuffer(command_queue, mem_key, CL_TRUE, 0, 16, key, 0, NULL, NULL));
 	}
 	get_hp_time(&t1);
@@ -138,8 +147,7 @@ void ocl_test(cl_device_id device_id, cl_uchar *buf_in, int test_case) {
 	OCL_ASSERT(clSetKernelArg(kernel, 0, sizeof(cl_mem), &mem_in));
 	OCL_ASSERT(clSetKernelArg(kernel, 1, sizeof(cl_mem), &mem_out));
 	if (test_case == TEST_AES_128_ECB) {
-		OCL_ASSERT(clSetKernelArg(kernel, 2, sizeof(cl_mem), &mem_tables));
-		OCL_ASSERT(clSetKernelArg(kernel, 3, sizeof(cl_mem), &mem_key));
+		OCL_ASSERT(clSetKernelArg(kernel, 2, sizeof(cl_mem), &mem_key));
 	}
 
 	size_t local;
@@ -223,7 +231,7 @@ int main(int argc, const char *argv[]) {
 		srand(2501);
 		HP_Time t0, t1; long long td;
 		get_hp_time(&t0);
-		if(!cpu_has_rdrand()){
+		if(cpu_has_rdrand()){
 			// ~190 MB/s @ X230, ~200 without the success check
 			printf("randomize source buffer using RDRAND\n");
 			unsigned long long *p = (unsigned long long *)buf_in;
