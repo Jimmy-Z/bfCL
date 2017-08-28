@@ -31,7 +31,7 @@ static uint32_t RT1[256];
 static uint32_t RT2[256];
 static uint32_t RT3[256];
 
-static uint32_t *RCON[256];
+static uint32_t RCON[256];
 
 /*
  * Tables generation code

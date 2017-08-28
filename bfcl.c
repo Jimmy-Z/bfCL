@@ -88,8 +88,8 @@ void ocl_test(cl_device_id device_id, cl_uchar *buf_in, int test_case) {
 	// WTF? GCC complains if I pass char ** in to a function expecting const char **?
 	cl_program program = OCL_ASSERT2(clCreateProgramWithSource(context, num_sources, (const char **)sources, source_sizes, &err));
 	char options[0x100];
-	sprintf(options, "-DBLOCKS_PER_ITEM=%d", BLOCKS_PER_ITEM);
-	printf("compiler options: %s\n", options);
+	sprintf(options, "-w -Werror -DBLOCKS_PER_ITEM=%d", BLOCKS_PER_ITEM);
+	// printf("compiler options: %s\n", options);
 	err = clBuildProgram(program, 0, NULL, options, NULL, NULL);
 	get_hp_time(&t1);
 	printf("%d microseconds for compile\n", (int)hp_time_diff(&t0, &t1));
