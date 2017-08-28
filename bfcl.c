@@ -64,10 +64,10 @@ void dump_to_file(const char *file_name, const void *buf, size_t len) {
 #define TEST_AES_128_ECB	2
 
 #define BLOCK_SIZE 0x10
-#define NUM_BLOCKS (1 << 24)
+#define NUM_BLOCKS (1 << 23)
 #define BLOCKS_PER_ITEM 1
 
-void ocl_test(cl_device_id device_id, cl_uchar *buf_in, int test_case) {
+void ocl_test(cl_device_id device_id, const cl_uchar *buf_in, int test_case) {
 	cl_int err;
 	cl_context context = OCL_ASSERT2(clCreateContext(0, 1, &device_id, NULL, NULL, &err));
 	cl_command_queue command_queue = OCL_ASSERT2(clCreateCommandQueue(context, device_id, 0, &err));
@@ -115,7 +115,7 @@ void ocl_test(cl_device_id device_id, cl_uchar *buf_in, int test_case) {
 		default: exit(-1);
 	}
 
-	printf("%s on %u bytes\n", test_name, (unsigned)io_buf_len);
+	printf("%s on %u MB\n", test_name, (unsigned)io_buf_len >> 20);
 
 	cl_kernel kernel = OCL_ASSERT2(clCreateKernel(program, test_name, &err));
 
@@ -142,7 +142,8 @@ void ocl_test(cl_device_id device_id, cl_uchar *buf_in, int test_case) {
 		OCL_ASSERT(clEnqueueWriteBuffer(command_queue, mem_key, CL_TRUE, 0, 16, key, 0, NULL, NULL));
 	}
 	get_hp_time(&t1);
-	printf("%d microseconds for data upload\n", (int)hp_time_diff(&t0, &t1));
+	td = hp_time_diff(&t0, &t1);
+	printf("%d microseconds for data upload, %.2f MB/s\n", (int)td, io_buf_len * 1.0f / td);
 
 	OCL_ASSERT(clSetKernelArg(kernel, 0, sizeof(cl_mem), &mem_in));
 	OCL_ASSERT(clSetKernelArg(kernel, 1, sizeof(cl_mem), &mem_out));
@@ -167,17 +168,21 @@ void ocl_test(cl_device_id device_id, cl_uchar *buf_in, int test_case) {
 	get_hp_time(&t0);
 	OCL_ASSERT(clEnqueueReadBuffer(command_queue, mem_out, CL_TRUE, 0, io_buf_len, buf_out, 0, NULL, NULL));
 	get_hp_time(&t1);
-	printf("%d microseconds for data download\n", (int)hp_time_diff(&t0, &t1));
+	td = hp_time_diff(&t0, &t1);
+	printf("%d microseconds for data download, %.2f MB/s\n", (int)td, io_buf_len * 1.0f / td);
 
 	/*
-	dump_to_file("r:/test_aes_in.bin", buf_in, io_buf_len);
-	dump_to_file("r:/test_aes_out.bin", buf_out, io_buf_len);
+	if(test_case == TEST_AES_128_ECB){
+		dump_to_file("r:/test_aes_in.bin", buf_in, io_buf_len);
+		dump_to_file("r:/test_aes_out.bin", buf_out, io_buf_len);
+	}
 	*/
 
+	cl_uchar *buf_verify = malloc(io_buf_len);
 	get_hp_time(&t0);
 	if (test_case == TEST_SHA1_16) {
 		for (unsigned offset = 0; offset < io_buf_len; offset += BLOCK_SIZE) {
-			sha1_16(buf_in + offset, buf_in + offset);
+			sha1_16(buf_in + offset, buf_verify + offset);
 		}
 	} else {
 		for (unsigned offset = 0; offset < io_buf_len; offset += BLOCK_SIZE) {
@@ -185,19 +190,20 @@ void ocl_test(cl_device_id device_id, cl_uchar *buf_in, int test_case) {
 			// yet we still do it to keep it in line with the OpenCL port
 			// otherwise we can't test the set key in OpenCL
 			aes_set_key_enc_128(aes_rk, key);
-			aes_encrypt_128(aes_rk, buf_in + offset, buf_in + offset);
+			aes_encrypt_128(aes_rk, buf_in + offset, buf_verify + offset);
 		}
 	}
 	get_hp_time(&t1);
 	td = hp_time_diff(&t0, &t1);
 	printf("%d microseconds for C(single thread), %.2f MB/s\n", (int)td, io_buf_len * 1.0f / td);
 
-	if (memcmp(buf_in, buf_out, io_buf_len)) {
+	if (memcmp(buf_verify, buf_out, io_buf_len)) {
 		printf("%s: verification failed\n", test_name);
 		for (unsigned offset = 0; offset < io_buf_len; offset += BLOCK_SIZE) {
-			if (memcmp(buf_in + offset, buf_out + offset, BLOCK_SIZE)) {
+			if (memcmp(buf_verify + offset, buf_out + offset, BLOCK_SIZE)) {
 				printf("first difference @ 0x%08x/0x%08x:\n", offset, (unsigned)num_items );
 				printf("\t%s\n", hexdump(buf_in + offset, BLOCK_SIZE, 0));
+				printf("\t%s\n", hexdump(buf_verify + offset, BLOCK_SIZE, 0));
 				printf("\t%s\n", hexdump(buf_out + offset, BLOCK_SIZE, 0));
 				break;
 			}
