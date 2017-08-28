@@ -168,12 +168,7 @@ void ocl_test() {
 	OCL_ASSERT(clSetKernelArg(kernel, 2, sizeof(cl_mem), &mem_out));
 
 	ocl_test_run_and_read(test_name, kernel, device_id, command_queue, mem_out, buf_out);
-	/*
-	if(test_case == TEST_AES_128_ECB){
-		dump_to_file("r:/test_aes_in.bin", buf_in, io_buf_len);
-		dump_to_file("r:/test_aes_out.bin", buf_out, io_buf_len);
-	}
-	*/
+
 	get_hp_time(&t0);
 	for (unsigned offset = 0; offset < BUF_SIZE; offset += BLOCK_SIZE) {
 		// setting the same key over and over is stupid
@@ -183,6 +178,9 @@ void ocl_test() {
 	}
 	get_hp_time(&t1); td = hp_time_diff(&t0, &t1);
 	printf("%d microseconds for C(single thread), %.2f MB/s\n", (int)td, BUF_SIZE * 1.0f / td);
+	// dump_to_file("r:/test_aes_in.bin", buf_in, BUF_SIZE);
+	// dump_to_file("r:/test_aes_out.bin", buf_out, BUF_SIZE);
+	// dump_to_file("r:/test_aes_verify.bin", buf_verify, BUF_SIZE);
 
 	verify(test_name, buf_in, buf_out, buf_verify);
 
