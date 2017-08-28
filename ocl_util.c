@@ -30,6 +30,8 @@ const char * ocl_err_msg(cl_int error_code) {
 		return "out of host memory";
 	case CL_PLATFORM_NOT_FOUND_KHR:
 		return "platform not found";
+	case CL_INVALID_WORK_GROUP_SIZE:
+		return "invalid work group size";
 	default:
 		sprintf(ocl_err_msg_buf, "code: %d", error_code);
 		return ocl_err_msg_buf;
@@ -189,9 +191,8 @@ void ocl_get_device(cl_platform_id *p_platform_id, cl_device_id *p_device_id) {
 				platforms[pl_idx].devices[dev_idx].name, platforms[pl_idx].name);
 			*p_platform_id = platforms[pl_idx].id;
 			*p_device_id = platforms[pl_idx].devices[dev_idx].id;
-		}
-		else {
-			printf("no openCL capable GPU found\n");
+		} else {
+			fprintf(stderr, "no openCL capable GPU found\n");
 			*p_platform_id = NULL;
 			*p_device_id = NULL;
 		}
@@ -216,9 +217,9 @@ cl_program ocl_build_from_sources(
 	// printf("compiler options: %s\n", options);
 	err = clBuildProgram(program, 0, NULL, options, NULL, NULL);
 	get_hp_time(&t1);
-	printf("%d microseconds for compile\n", (int)hp_time_diff(&t0, &t1));
+	printf("%.2f milliseconds for compiling\n", hp_time_diff(&t0, &t1) / 1000.0);
 	if (err != CL_SUCCESS) {
-		fprintf(stderr, "failed to build program, error: %s, build log:\n", ocl_err_msg(err));
+		fprintf(stderr, "failed to compile program, error: %s, build log:\n", ocl_err_msg(err));
 		size_t len;
 		clGetProgramBuildInfo(program, device_id, CL_PROGRAM_BUILD_LOG, 0, NULL, &len);
 		char *buf_log = malloc(len + 1);

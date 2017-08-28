@@ -14,7 +14,7 @@ void ocl_test_run_and_read(const char * test_name, cl_kernel kernel,
 	cl_device_id device_id, cl_command_queue command_queue,
 	cl_mem mem_out, cl_uchar *buf_out)
 {
-	printf("%s on %u MB\n", test_name, (unsigned)BUF_SIZE >> 20);
+	printf("=== %s on %u MB\n", test_name, (unsigned)BUF_SIZE >> 20);
 	TimeHP t0, t1; long long td;
 	size_t local;
 	OCL_ASSERT(clGetKernelWorkGroupInfo(kernel, device_id, CL_KERNEL_WORK_GROUP_SIZE, sizeof(local), &local, NULL));
@@ -28,12 +28,12 @@ void ocl_test_run_and_read(const char * test_name, cl_kernel kernel,
 	// OCL_ASSERT(clEnqueueNDRangeKernel(command_queue, kernel, 1, NULL, &num_items, NULL, 0, NULL, NULL));
 	clFinish(command_queue);
 	get_hp_time(&t1); td = hp_time_diff(&t0, &t1);
-	printf("%d microseconds for OpenCL, %.2f MB/s\n", (int)td, BUF_SIZE * 1.0f / td);
+	printf("%.2f milliseconds for OpenCL, %.2f MB/s\n", td / 1000.0, BUF_SIZE * 1.0 / td);
 
 	get_hp_time(&t0);
 	OCL_ASSERT(clEnqueueReadBuffer(command_queue, mem_out, CL_TRUE, 0, BUF_SIZE, buf_out, 0, NULL, NULL));
 	get_hp_time(&t1); td = hp_time_diff(&t0, &t1);
-	printf("%d microseconds for data download, %.2f MB/s\n", (int)td, BUF_SIZE * 1.0f / td);
+	printf("%.2f milliseconds for data download, %.2f MB/s\n", td / 1000.0, BUF_SIZE * 1.0 / td);
 
 	clReleaseKernel(kernel);
 }
@@ -111,8 +111,8 @@ void ocl_test() {
 		}
 	}
 	get_hp_time(&t1); td = hp_time_diff(&t0, &t1);
-	printf("%d microseconds for preparing test data, %.2f MB/s\n",
-		(int)td, BUF_SIZE * 1.0f / td);
+	printf("%.2f milliseconds for preparing test data, %.2f MB/s\n",
+		td / 1000.0, BUF_SIZE * 1.0 / td);
 
 	cl_context context = OCL_ASSERT2(clCreateContext(0, 1, &device_id, NULL, NULL, &err));
 	cl_command_queue command_queue = OCL_ASSERT2(clCreateCommandQueue(context, device_id, 0, &err));
@@ -137,7 +137,7 @@ void ocl_test() {
 	get_hp_time(&t0);
 	OCL_ASSERT(clEnqueueWriteBuffer(command_queue, mem_in, CL_TRUE, 0, BUF_SIZE, buf_in, 0, NULL, NULL));
 	get_hp_time(&t1); td = hp_time_diff(&t0, &t1);
-	printf("%d microseconds for data upload, %.2f MB/s\n", (int)td, BUF_SIZE * 1.0f / td);
+	printf("%d microseconds for data upload, %.2f MB/s\n", (int)td, BUF_SIZE * 1.0 / td);
 
 	// SHA1_16 test
 	const char * test_name = "sha1_16_test";
@@ -154,7 +154,7 @@ void ocl_test() {
 		sha1_16(buf_in + offset, buf_verify + offset);
 	}
 	get_hp_time(&t1); td = hp_time_diff(&t0, &t1);
-	printf("%d microseconds for C(single thread), %.2f MB/s\n", (int)td, BUF_SIZE * 1.0f / td);
+	printf("%.2f milliseconds for reference C(single thread), %.2f MB/s\n", td / 1000.0, BUF_SIZE * 1.0 / td);
 
 	verify(test_name, buf_in, buf_out, buf_verify);
 
@@ -177,7 +177,7 @@ void ocl_test() {
 		aes_encrypt_128(aes_rk, buf_in + offset, buf_verify + offset);
 	}
 	get_hp_time(&t1); td = hp_time_diff(&t0, &t1);
-	printf("%d microseconds for C(single thread), %.2f MB/s\n", (int)td, BUF_SIZE * 1.0f / td);
+	printf("%.2f milliseconds for reference C(single thread), %.2f MB/s\n", td / 1000.0, BUF_SIZE * 1.0f / td);
 	// dump_to_file("r:/test_aes_in.bin", buf_in, BUF_SIZE);
 	// dump_to_file("r:/test_aes_out.bin", buf_out, BUF_SIZE);
 	// dump_to_file("r:/test_aes_verify.bin", buf_verify, BUF_SIZE);

@@ -12,7 +12,7 @@ int main(int argc, const char *argv[]) {
 	if (argc == 2 && !strcmp(argv[1], "info")) {
 		cl_uint num_platforms;
 		ocl_info(&num_platforms, 1);
-	} else if (argc == 7 && !strcmp(argv[1], "console_id")){
+	} else if (argc == 7){
 		cl_uchar console_id[8], emmc_cid[16], src[16], ver[16], offset[2];
 		hex2bytes(console_id, 8, argv[2], 1);
 		hex2bytes(emmc_cid, 16, argv[3], 1);
@@ -20,14 +20,12 @@ int main(int argc, const char *argv[]) {
 		hex2bytes(src, 16, argv[5], 1);
 		hex2bytes(ver, 16, argv[6], 1);
 
-		if(!strcmp(argv[1], "emmc_cid")){
-			// dsi_brute_emmc_cid(console_id, emmc_cid, src, ver, offset);
-		}else if(!strcmp(argv[1], "console_id")){
+		if(!strcmp(argv[1], "console_id")){
 			ocl_brute(console_id, emmc_cid, offset, src, ver, 0);
 		}else if(!strcmp(argv[1], "console_id_bcd")){
-			// dsi_brute_console_id(console_id, emmc_cid, src, ver, offset, 1);
+			ocl_brute(console_id, emmc_cid, offset, src, ver, 1);
 		}else{
-			puts("invalid parameters");
+			puts("invalid parameters\n");
 		}
 	} else if (argc == 1){
 		ocl_test();
@@ -35,7 +33,7 @@ int main(int argc, const char *argv[]) {
 		system("pause");
 #endif
 	} else {
-		printf("invalid args\n");
+		printf("invalid parameters\n");
 	}
 	return 0;
 }

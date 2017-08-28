@@ -108,8 +108,32 @@ static inline void dsi_make_key(u64 *key, u64 console_id){
 	add_128(key, DSi_KEY_MAGIC);
 	rol42_128(key);
 }
+
+// 123 -> 0x123
+static cl_ulong to_bcd(cl_ulong i) {
+	cl_ulong o = 0;
+	unsigned shift = 0;
+	while (i) {
+		o |= (i % 10) << (shift++ << 2);
+		i /= 10;
+	}
+	return o;
+}
+
+// 0x123 -> 123
+static cl_ulong from_bcd(cl_ulong i) {
+	cl_ulong o = 0;
+	cl_ulong pow = 1;
+	while (i) {
+		o += (i & 0xf) * pow;
+		i >>= 4;
+		pow *= 10;
+	}
+	return o;
+}
+
 void ocl_brute(const cl_uchar *console_id, const cl_uchar *emmc_cid,
-	const cl_uchar *offset, const cl_uchar *src, const cl_uchar *ver, int mode)
+	const cl_uchar *offset, const cl_uchar *src, const cl_uchar *ver, int bcd)
 {
 	TimeHP t0, t1; long long td;
 
@@ -131,7 +155,7 @@ void ocl_brute(const cl_uchar *console_id, const cl_uchar *emmc_cid,
 		"cl/dsi.cl",
 		"cl/kernel_console_id.cl" };
 	cl_program program = ocl_build_from_sources(sizeof(source_names) / sizeof(char *),
-		source_names, context, device_id, NULL /* "-w -Werror" */);
+		source_names, context, device_id, bcd ? "-w -Werror -DBCD" : "-w -Werror");
 
 	cl_kernel kernel = OCL_ASSERT2(clCreateKernel(program, "test_console_id", &err));
 
@@ -170,15 +194,45 @@ void ocl_brute(const cl_uchar *console_id, const cl_uchar *emmc_cid,
 
 	OCL_ASSERT(clEnqueueWriteBuffer(command_queue, mem_success, CL_TRUE, 0, sizeof(cl_int), &success, 0, NULL, NULL));
 
-#define BRUTE_BITS 32
-#define TEMPLATE_MASK ((cl_ulong)(-1ll << BRUTE_BITS))
-	// a large number of items seems to stall the system
-	size_t num_items = 0x1000000ull;
+	unsigned template_bits;
+	cl_ulong total;
+	unsigned group_bits;
+	size_t num_items;
+	unsigned steps;
+	if (bcd) {
+		// 0x08a15????????1?? as example, 10 digit to brute, beware the known digit near the end
+		// 5 BCD digits, used to calculate template mask
+		template_bits = 20;
+		// I wish we could use 1e10, counting 0 is not good to your eye
+		total = from_bcd(1ull << 40);
+		// work items variations on lower bits, 8 + 1 digits a group
+		group_bits = 36;
+		// work items per enqueue, don't count the known digit here
+		num_items = from_bcd(1ull << (group_bits - 4));
+		// between the template bits and group bits, it's the loop bits
+		steps = from_bcd(1 << (64 - template_bits - group_bits));
+	} else {
+		template_bits = 32;
+		total = 1ull << (64 - template_bits);
+		group_bits = 28;
+		num_items = 1ull << group_bits; // 268435456
+		steps = 1 << (64 - template_bits - group_bits);
+	}
+	// beware in BCD mode this is not the same to num_items
+	const cl_ulong template_mask = ((cl_ulong)-1ll) << (64 - template_bits);
+	// printf("total: %I64u, 0x%I64x\n", total, total);
+	// printf("num_items: %I64u, 0x%I64x\n", num_items, num_items);
+	// printf("steps: %u, 0x%x\n", steps, steps);
 	get_hp_time(&t0);
-	for (cl_long i = 0; i < (1ull << BRUTE_BITS); i+= num_items) {
-		console_id_template = (console_id_template & TEMPLATE_MASK) | i;
-		printf("%08x%08x\n", (unsigned)(console_id_template >> 32),
-			(unsigned)(console_id_template & 0xffffffffu));
+	for (unsigned i = 0; i < steps; ++i) {
+		if (bcd) {
+			console_id_template = (console_id_template & template_mask)
+				| (to_bcd(i) << group_bits);
+		} else {
+			console_id_template = (console_id_template & template_mask)
+				| (i << group_bits);
+		}
+		printf("%" LL "x\n", console_id_template);
 		OCL_ASSERT(clSetKernelArg(kernel, 0, sizeof(cl_ulong), &xor_l));
 		OCL_ASSERT(clSetKernelArg(kernel, 1, sizeof(cl_ulong), &xor_h));
 		OCL_ASSERT(clSetKernelArg(kernel, 2, sizeof(cl_ulong), &console_id_template));
@@ -189,24 +243,27 @@ void ocl_brute(const cl_uchar *console_id, const cl_uchar *emmc_cid,
 		OCL_ASSERT(clSetKernelArg(kernel, 7, sizeof(cl_mem), &mem_success));
 		OCL_ASSERT(clSetKernelArg(kernel, 8, sizeof(cl_mem), &mem_out));
 
+		if (num_items % local) {
+			num_items = (num_items / local + 1) * local;
+		}
 		OCL_ASSERT(clEnqueueNDRangeKernel(command_queue, kernel, 1, NULL, &num_items, &local, 0, NULL, NULL));
 		clFinish(command_queue);
 
 		OCL_ASSERT(clEnqueueReadBuffer(command_queue, mem_success, CL_TRUE, 0, sizeof(cl_int), &success, 0, NULL, NULL));
 		// printf("out : %s\n", hexdump(&out, 8, 0));
 		if (success) {
-			// if success, the speed measurement is invalid
+			// TODO: if success, the (total / td) speed measurement is invalid
 			OCL_ASSERT(clEnqueueReadBuffer(command_queue, mem_out, CL_TRUE, 0, sizeof(cl_ulong), &out, 0, NULL, NULL));
 			get_hp_time(&t1); td = hp_time_diff(&t0, &t1);
-			printf("got a hit in %d microseconds: %08x%08x\n", (int)td,
-				(unsigned)(out >> 32), (unsigned)(out & 0xffffffffu));
+			printf("got a hit in %.2f seconds: %"LL"x\n", td / 1000000.0, out);
+			// also write to a file
+			dump_to_file(hexdump(emmc_cid, 16, 0), &out, 8);
 			break;
 		}
 	}
 	if (!success) {
 		get_hp_time(&t1); td = hp_time_diff(&t0, &t1);
-		printf("%d microseconds, %.2f M/s\n", (int)td, (1ull << BRUTE_BITS) * 1.0f / td);
-		printf("sorry, no hit\n");
+		printf("%.2f seconds, %.2f M/s\nno hit", td / 1000000.0, (total) * 1.0 / td);
 	}
 
 	clReleaseKernel(kernel);

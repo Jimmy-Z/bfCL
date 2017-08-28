@@ -8,11 +8,15 @@
 typedef LARGE_INTEGER TimeHP;
 #define get_hp_time QueryPerformanceCounter
 
+#define LL "I64"
+
 #else
 
 #include <sys/time.h>
 typedef struct timeval TimeHP;
 void get_hp_time(TimeHP *pt);
+
+#define LL "ll"
 
 #endif
 
