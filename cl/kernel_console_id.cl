@@ -8,7 +8,7 @@ __kernel void test_console_id(
 	__global int *success,
 	__global u64 *console_id_out)
 {
-	if(success){
+	if(*success){
 		return;
 	}
 	// TODO: BCD conversion

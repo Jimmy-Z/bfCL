@@ -1,10 +1,10 @@
 
 // more about this: https://github.com/Jimmy-Z/TWLbf/blob/master/dsi.c
 
-static const u64 DSi_KEY_Y[2] =
+__constant static const u64 DSi_KEY_Y[2] =
 	{0xbd4dc4d30ab9dc76ull, 0xe1a00005202ddd1dull};
 
-static const u64 DSi_KEY_MAGIC[2] =
+__constant static const u64 DSi_KEY_MAGIC[2] =
 	{0x2a680f5f1a4f3e79ull, 0xfffefb4e29590258ull};
 
 static inline void xor_128(u64 *x, const u64 *a, const u64 *b){
@@ -36,18 +36,26 @@ static inline void rol42_128(u64 *a){
 }
 
 // eMMC Encryption for MBR/Partitions (AES-CTR, with console-specific key)
-void dsi_make_key(u64 *key, u64 console_id){
+static inline void dsi_make_key(u64 *key, u64 console_id){
 	u32 h = console_id >> 32, l = (u32)console_id;
 	u32 key_x[4] = {l, l ^ 0x24ee6906, h ^ 0xe65b601d, h};
 	// Key = ((Key_X XOR Key_Y) + FFFEFB4E295902582A680F5F1A4F3E79h) ROL 42
 	// equivalent to F_XY in twltool/f_xy.c
-	xor_128(key, (u64*)key_x, DSi_KEY_Y);
-	add_128(key, DSi_KEY_MAGIC);
+	// xor_128(key, (u64*)key_x, DSi_KEY_Y);
+	key[0] = ((u64*)key_x)[0] ^ DSi_KEY_Y[0];
+	key[1] = ((u64*)key_x)[1] ^ DSi_KEY_Y[1];
+	// add_128(key, DSi_KEY_MAGIC);
+	key[0] += DSi_KEY_MAGIC[0];
+	if(key[0] < DSi_KEY_MAGIC[0]){
+		key[1] += DSi_KEY_MAGIC[1] + 1;
+	}else{
+		key[1] += DSi_KEY_MAGIC[1];
+	}
 	rol42_128(key);
 }
 
 // CAUTION this one doesn't work in-place
-void byte_reverse_16(u8 *out, const u8 *in){
+static inline void byte_reverse_16(u8 *out, const u8 *in){
 	out[0] = in[15];
 	out[1] = in[14];
 	out[2] = in[13];

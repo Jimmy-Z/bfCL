@@ -174,6 +174,9 @@ void ocl_get_device(cl_platform_id *p_platform_id, cl_device_id *p_device_id) {
 			for (cl_uint j = 0; j < platforms[i].num_devices; ++j) {
 				if (devices[j].type == CL_DEVICE_TYPE_GPU
 					&& devices[j].c_avail == CL_TRUE
+#ifndef ALLOW_CAPEVERDE
+					&& strcmp((char*)devices[j].name, "Capeverde")
+#endif
 					&& (cl_ulong)devices[j].max_compute_units * devices[j].max_work_group_size > maximum) {
 					maximum = devices[j].max_compute_units;
 					pl_idx = i;

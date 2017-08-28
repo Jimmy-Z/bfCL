@@ -135,6 +135,10 @@ void ocl_brute(const cl_uchar *console_id, const cl_uchar *emmc_cid,
 
 	cl_kernel kernel = OCL_ASSERT2(clCreateKernel(program, "test_console_id", &err));
 
+	size_t local;
+	OCL_ASSERT(clGetKernelWorkGroupInfo(kernel, device_id, CL_KERNEL_WORK_GROUP_SIZE, sizeof(local), &local, NULL));
+	printf("local work size: %u\n", (unsigned)local);
+
 	// preparing test data
 	cl_ulong xor_l, xor_h, console_id_template, out;
 	cl_uint ctr[4];
@@ -149,9 +153,15 @@ void ocl_brute(const cl_uchar *console_id, const cl_uchar *emmc_cid,
 		sha1_16(emmc_cid, emmc_cid_sha1_16);
 		add_128_64((u64*)emmc_cid_sha1_16, u16be(offset));
 		byte_reverse_16((u8*)ctr, emmc_cid_sha1_16);
-
-		console_id_template = u64be(console_id) & 0xffffffffffffff00ull;
+		console_id_template = u64be(console_id);
 	}
+	/*
+	printf("xor_l : %s\n", hexdump(&xor_l, 8, 0));
+	printf("xor_h : %s\n", hexdump(&xor_h, 8, 0));
+	printf("templ : %s\n", hexdump(&console_id_template, 8, 0));
+	printf("ctr_l : %s\n", hexdump(ctr, 8, 0));
+	printf("ctr_h : %s\n", hexdump(ctr + 2, 8, 0));
+	*/
 
 	cl_mem mem_success =
 		OCL_ASSERT2(clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(cl_int), NULL, &err));
@@ -160,35 +170,42 @@ void ocl_brute(const cl_uchar *console_id, const cl_uchar *emmc_cid,
 
 	OCL_ASSERT(clEnqueueWriteBuffer(command_queue, mem_success, CL_TRUE, 0, sizeof(cl_int), &success, 0, NULL, NULL));
 
-	OCL_ASSERT(clSetKernelArg(kernel, 0, sizeof(cl_ulong), &xor_l));
-	OCL_ASSERT(clSetKernelArg(kernel, 1, sizeof(cl_ulong), &xor_h));
-	OCL_ASSERT(clSetKernelArg(kernel, 2, sizeof(cl_ulong), &console_id_template));
-	OCL_ASSERT(clSetKernelArg(kernel, 3, sizeof(cl_uint), &ctr[0]));
-	OCL_ASSERT(clSetKernelArg(kernel, 4, sizeof(cl_uint), &ctr[1]));
-	OCL_ASSERT(clSetKernelArg(kernel, 5, sizeof(cl_uint), &ctr[2]));
-	OCL_ASSERT(clSetKernelArg(kernel, 6, sizeof(cl_uint), &ctr[3]));
-	OCL_ASSERT(clSetKernelArg(kernel, 7, sizeof(cl_mem), &mem_success));
-	OCL_ASSERT(clSetKernelArg(kernel, 8, sizeof(cl_mem), &mem_out));
-
-	size_t local;
-	OCL_ASSERT(clGetKernelWorkGroupInfo(kernel, device_id, CL_KERNEL_WORK_GROUP_SIZE, sizeof(local), &local, NULL));
-	printf("local work size: %u\n", (unsigned)local);
-
-	size_t num_items = 0x100;
-
+#define BRUTE_BITS 32
+#define TEMPLATE_MASK ((cl_ulong)(-1ll << BRUTE_BITS))
+	// a large number of items seems to stall the system
+	size_t num_items = 0x1000000ull;
 	get_hp_time(&t0);
-	OCL_ASSERT(clEnqueueNDRangeKernel(command_queue, kernel, 1, NULL, &num_items, &local, 0, NULL, NULL));
-	clFinish(command_queue);
-	get_hp_time(&t1); td = hp_time_diff(&t0, &t1);
+	for (cl_long i = 0; i < (1ull << BRUTE_BITS); i+= num_items) {
+		console_id_template = (console_id_template & TEMPLATE_MASK) | i;
+		printf("%08x%08x\n", (unsigned)(console_id_template >> 32),
+			(unsigned)(console_id_template & 0xffffffffu));
+		OCL_ASSERT(clSetKernelArg(kernel, 0, sizeof(cl_ulong), &xor_l));
+		OCL_ASSERT(clSetKernelArg(kernel, 1, sizeof(cl_ulong), &xor_h));
+		OCL_ASSERT(clSetKernelArg(kernel, 2, sizeof(cl_ulong), &console_id_template));
+		OCL_ASSERT(clSetKernelArg(kernel, 3, sizeof(cl_uint), &ctr[0]));
+		OCL_ASSERT(clSetKernelArg(kernel, 4, sizeof(cl_uint), &ctr[1]));
+		OCL_ASSERT(clSetKernelArg(kernel, 5, sizeof(cl_uint), &ctr[2]));
+		OCL_ASSERT(clSetKernelArg(kernel, 6, sizeof(cl_uint), &ctr[3]));
+		OCL_ASSERT(clSetKernelArg(kernel, 7, sizeof(cl_mem), &mem_success));
+		OCL_ASSERT(clSetKernelArg(kernel, 8, sizeof(cl_mem), &mem_out));
 
-	OCL_ASSERT(clEnqueueReadBuffer(command_queue, mem_success, CL_TRUE, 0, sizeof(cl_int), &success, 0, NULL, NULL));
-	if (success) {
-		// if success, the speed measurement is invalid
-		printf("got a hit in %d microseconds\n", (int)td);
-		OCL_ASSERT(clEnqueueReadBuffer(command_queue, mem_out, CL_TRUE, 0, sizeof(cl_ulong), &out, 0, NULL, NULL));
-		printf("%08x%08x\n", (unsigned)(out >> 32), (unsigned)(out|0xffffffffu));
-	} else {
-		printf("%d microseconds, %.2f M/s\n", (int)td, num_items * 1.0f / td);
+		OCL_ASSERT(clEnqueueNDRangeKernel(command_queue, kernel, 1, NULL, &num_items, &local, 0, NULL, NULL));
+		clFinish(command_queue);
+
+		OCL_ASSERT(clEnqueueReadBuffer(command_queue, mem_success, CL_TRUE, 0, sizeof(cl_int), &success, 0, NULL, NULL));
+		// printf("out : %s\n", hexdump(&out, 8, 0));
+		if (success) {
+			// if success, the speed measurement is invalid
+			OCL_ASSERT(clEnqueueReadBuffer(command_queue, mem_out, CL_TRUE, 0, sizeof(cl_ulong), &out, 0, NULL, NULL));
+			get_hp_time(&t1); td = hp_time_diff(&t0, &t1);
+			printf("got a hit in %d microseconds: %08x%08x\n", (int)td,
+				(unsigned)(out >> 32), (unsigned)(out & 0xffffffffu));
+			break;
+		}
+	}
+	if (!success) {
+		get_hp_time(&t1); td = hp_time_diff(&t0, &t1);
+		printf("%d microseconds, %.2f M/s\n", (int)td, (1ull << BRUTE_BITS) * 1.0f / td);
 		printf("sorry, no hit\n");
 	}
 
