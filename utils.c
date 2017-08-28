@@ -3,7 +3,14 @@
 #include <stdio.h>
 #include <string.h>
 #include <assert.h>
+#include <immintrin.h>
 #include "utils.h"
+
+#ifdef __GNUC__
+#include <cpuid.h>
+#elif _MSC_VER
+#include <intrin.h>
+#endif
 
 int htoi(char a){
 	if(a >= '0' && a <= '9'){
@@ -42,7 +49,7 @@ int hex2bytes(unsigned char *out, unsigned byte_len, const char *in, int critica
 #endif
 
 static char hexdump_buf[HEXDUMP_BUF_SIZE];
-// CAUTION, this always assume you have a buffer big enough
+// CAUTION, this always assume the buffer is big enough
 const char *hexdump(const void *b, unsigned l, int space){
 	const unsigned char *p = (unsigned char*)b;
 	char *out = hexdump_buf;
@@ -81,3 +88,60 @@ long long hp_time_diff(struct timeval *pt0, struct timeval *pt1) {
 }
 
 #endif
+
+// CAUTION: caller is responsible to free the buf
+char * read_file(const char *file_name, size_t *p_size) {
+	FILE * f = fopen(file_name, "rb");
+	if (f == NULL) {
+		fprintf(stderr, "can't read file: %s", file_name);
+		exit(-1);
+	}
+	fseek(f, 0, SEEK_END);
+	*p_size = ftell(f);
+	char * buf = malloc(*p_size);
+	fseek(f, 0, SEEK_SET);
+	fread(buf, *p_size, 1, f);
+	fclose(f);
+	return buf;
+}
+
+void read_files(unsigned num_files, const char *file_names[], char *ptrs[], size_t sizes[]) {
+	for (unsigned i = 0; i < num_files; ++i) {
+		ptrs[i] = read_file(file_names[i], &sizes[i]);
+	}
+}
+
+void dump_to_file(const char *file_name, const void *buf, size_t len) {
+	FILE *f = fopen(file_name, "wb");
+	if (f == NULL) {
+		fprintf(stderr, "can't open file to write: %s\n", file_name);
+		return;
+	}
+	fwrite(buf, len, 1, f);
+	fclose(f);
+}
+
+int cpu_has_rdrand() {
+#if __GNUC__
+	unsigned a = 0, b = 0, c = 0, d = 0;
+	__get_cpuid(1, &a, &b, &c, &d);
+	return c & bit_RDRND;
+#elif _MSC_VER
+	int regs[4];
+	__cpuid(regs, 1);
+	return regs[2] & (1<<30);
+#else
+	// ICL only?
+	return _may_i_use_cpu_feature(_FEATURE_RDRND);
+#endif
+}
+
+// input must be multiple of uint64_t
+int rdrand_fill(unsigned long long *p, size_t size) {
+	unsigned long long *p_end = p + size;
+	int success = 1;
+	while (p < p_end) {
+		success &= _rdrand64_step(p++);
+	}
+	return success;
+}

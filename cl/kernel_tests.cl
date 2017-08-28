@@ -1,6 +1,6 @@
 
 __kernel void sha1_16_test(
-	__global const unsigned char *in,
+	__constant const unsigned char *in,
 	__global unsigned char *out)
 {
 	unsigned offset = get_global_id(0) * BLOCKS_PER_ITEM * 16;
@@ -26,9 +26,9 @@ __kernel void sha1_16_test(
 #define AES_BLOCK_SIZE 16
 
 __kernel void aes_128_ecb_test(
-	__global const uint32_t *in,
-	__global uint32_t *out,
-	__constant const uint32_t *key)
+	__constant const uint32_t *key,
+	__constant const uint32_t *in,
+	__global uint32_t *out)
 {
 	uint32_t rk[RK_LEN];
 	rk[0] = key[0]; rk[1] = key[1]; rk[2] = key[2]; rk[3] = key[3];
@@ -43,7 +43,7 @@ __kernel void aes_128_ecb_test(
 		aes_encrypt_128(rk, buf, buf);
 		out[0] = buf[0]; out[1] = buf[1]; out[2] = buf[2]; out[3] = buf[3];
 #if BLOCKS_PER_ITEM != 1
-		offset += AES_BLOCK_SIZE;
+		offset += AES_BLOCK_SIZE / 4;
 	}
 #endif
 }

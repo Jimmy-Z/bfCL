@@ -4,6 +4,7 @@
 #include <malloc.h>
 #include <CL/cl_ext.h>
 #include "ocl.h"
+#include "utils.h"
 
 #define STATIC_ASSERT(c) static_assert(c, #c)
 STATIC_ASSERT(sizeof(char) == sizeof(cl_char));
@@ -191,4 +192,43 @@ void ocl_get_device(cl_platform_id *p_platform_id, cl_device_id *p_device_id) {
 			*p_platform_id = NULL;
 			*p_device_id = NULL;
 		}
+}
+
+cl_program ocl_build_from_sources(
+	unsigned num_sources, const char *source_names[],
+	cl_context context, cl_device_id device_id, const char * options)
+{
+	TimeHP t0, t1;
+	cl_int err;
+	// read sources
+	char **sources = malloc(sizeof(char*) * num_sources);
+	size_t *source_sizes = malloc(sizeof(size_t) * num_sources);
+	read_files(num_sources, source_names, sources, source_sizes);
+
+	// compile
+	get_hp_time(&t0);
+	// WTF? GCC complains if I pass char ** to a function expecting const char **?
+	cl_program program = OCL_ASSERT2(clCreateProgramWithSource(context, num_sources,
+		(const char **)sources, source_sizes, &err));
+	// printf("compiler options: %s\n", options);
+	err = clBuildProgram(program, 0, NULL, options, NULL, NULL);
+	get_hp_time(&t1);
+	printf("%d microseconds for compile\n", (int)hp_time_diff(&t0, &t1));
+	if (err != CL_SUCCESS) {
+		fprintf(stderr, "failed to build program, error: %s, build log:\n", ocl_err_msg(err));
+		size_t len;
+		clGetProgramBuildInfo(program, device_id, CL_PROGRAM_BUILD_LOG, 0, NULL, &len);
+		char *buf_log = malloc(len + 1);
+		clGetProgramBuildInfo(program, device_id, CL_PROGRAM_BUILD_LOG, len, buf_log, NULL);
+		buf_log[len] = '\0';
+		fprintf(stderr, "%s\n", buf_log);
+		free(buf_log);
+		exit(err);
+	}
+	for (unsigned i = 0; i < num_sources; ++i) {
+		free(sources[i]);
+	}
+	free(sources);
+	free(source_sizes);
+	return program;
 }

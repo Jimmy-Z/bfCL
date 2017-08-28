@@ -1,8 +1,11 @@
 
+// I'm obsessed with the idea of generating this file in memory
+// on the other hand I know that's pointless...
+
 /*
  * Forward S-box
  */
-__constant static const unsigned char FSb[256] =
+static const unsigned char FSb[256] =
 {
     0x63, 0x7C, 0x77, 0x7B, 0xF2, 0x6B, 0x6F, 0xC5,
     0x30, 0x01, 0x67, 0x2B, 0xFE, 0xD7, 0xAB, 0x76,
@@ -109,19 +112,19 @@ __constant static const unsigned char FSb[256] =
     V(CB,B0,B0,7B), V(FC,54,54,A8), V(D6,BB,BB,6D), V(3A,16,16,2C)
 
 #define V(a,b,c,d) 0x##a##b##c##d
-__constant static const uint32_t FT0[256] = { FT };
+static const uint32_t FT0[256] = { FT };
 #undef V
 
 #define V(a,b,c,d) 0x##b##c##d##a
-__constant static const uint32_t FT1[256] = { FT };
+static const uint32_t FT1[256] = { FT };
 #undef V
 
 #define V(a,b,c,d) 0x##c##d##a##b
-__constant static const uint32_t FT2[256] = { FT };
+static const uint32_t FT2[256] = { FT };
 #undef V
 
 #define V(a,b,c,d) 0x##d##a##b##c
-__constant static const uint32_t FT3[256] = { FT };
+static const uint32_t FT3[256] = { FT };
 #undef V
 
 #undef FT
@@ -129,7 +132,7 @@ __constant static const uint32_t FT3[256] = { FT };
 /*
  * Round constants
  */
-__constant static const uint32_t RCON[10] =
+static const uint32_t RCON[10] =
 {
     0x00000001, 0x00000002, 0x00000004, 0x00000008,
     0x00000010, 0x00000020, 0x00000040, 0x00000080,

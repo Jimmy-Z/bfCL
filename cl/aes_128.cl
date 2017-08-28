@@ -1,18 +1,9 @@
 
-// OpenCL has these fancy address space qualifiers that can't be cast without
-#define GET_UINT32_LE(n, b, i) \
-	(n) = *(uint32_t*)(b + i)
-#define GET_UINT32_LE_G(n, b, i) \
-	(n) = *(__global uint32_t*)(b + i)
-#define GET_UINT32_LE_C(n, b, i) \
-	(n) = *(__constant uint32_t*)(b + i)
-#define PUT_UINT32_LE(n, b, i) \
-	*(uint32_t*)(b + i) = (n)
-#define PUT_UINT32_LE_G(n, b, i) \
-	*(__global uint32_t*)(b + i) = (n)
+// AES 128 ECB adapted for OpenCL, see "aes_128.c" for more info
 
 #define RK_LEN 44
 
+// the caller is responsible to put the key in rk
 void aes_set_key_enc_128(uint32_t rk[RK_LEN])
 {
 	uint32_t *RK = rk;
