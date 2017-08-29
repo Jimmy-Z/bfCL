@@ -165,37 +165,38 @@ OCL_Platform *ocl_info(cl_uint *p_num_platforms, int verbose){
 }
 
 void ocl_get_device(cl_platform_id *p_platform_id, cl_device_id *p_device_id) {
-		cl_uint num_platforms;
-		OCL_Platform * platforms = ocl_info(&num_platforms, 0);
-		cl_uint pl_idx = 0;
-		cl_uint dev_idx = 0;
-		cl_ulong maximum = 0;
-		// for simplicity, we choose only one device
-		for (cl_uint i = 0; i < num_platforms; ++i) {
-			OCL_Device *devices = platforms[i].devices;
-			for (cl_uint j = 0; j < platforms[i].num_devices; ++j) {
-				if (devices[j].type == CL_DEVICE_TYPE_GPU
-					&& devices[j].c_avail == CL_TRUE
-#ifndef ALLOW_CAPEVERDE
-					&& strcmp((char*)devices[j].name, "Capeverde")
+	cl_uint num_platforms;
+	OCL_Platform * platforms = ocl_info(&num_platforms, 0);
+	cl_uint pl_idx = 0;
+	cl_uint dev_idx = 0;
+	cl_ulong maximum = 0;
+	// for simplicity, we choose only one device
+	for (cl_uint i = 0; i < num_platforms; ++i) {
+		OCL_Device *devices = platforms[i].devices;
+		for (cl_uint j = 0; j < platforms[i].num_devices; ++j) {
+#ifdef USE_CPU
+			if (devices[j].type == CL_DEVICE_TYPE_CPU
+#else
+			if (devices[j].type == CL_DEVICE_TYPE_GPU
 #endif
-					&& (cl_ulong)devices[j].max_compute_units * devices[j].max_work_group_size > maximum) {
-					maximum = devices[j].max_compute_units;
-					pl_idx = i;
-					dev_idx = j;
-				}
+				&& devices[j].c_avail == CL_TRUE
+				&& (cl_ulong)devices[j].max_compute_units * devices[j].max_work_group_size > maximum) {
+				maximum = devices[j].max_compute_units;
+				pl_idx = i;
+				dev_idx = j;
 			}
 		}
-		if (maximum > 0) {
-			printf("selected device \"%s\" on platform \"%s\"\n",
-				platforms[pl_idx].devices[dev_idx].name, platforms[pl_idx].name);
-			*p_platform_id = platforms[pl_idx].id;
-			*p_device_id = platforms[pl_idx].devices[dev_idx].id;
-		} else {
-			fprintf(stderr, "no openCL capable GPU found\n");
-			*p_platform_id = NULL;
-			*p_device_id = NULL;
-		}
+	}
+	if (maximum > 0) {
+		printf("selected device %s on platform %s\n",
+			trim((char*)platforms[pl_idx].devices[dev_idx].name), trim((char*)platforms[pl_idx].name));
+		*p_platform_id = platforms[pl_idx].id;
+		*p_device_id = platforms[pl_idx].devices[dev_idx].id;
+	} else {
+		fprintf(stderr, "no openCL capable GPU found\n");
+		*p_platform_id = NULL;
+		*p_device_id = NULL;
+	}
 }
 
 cl_program ocl_build_from_sources(
@@ -217,7 +218,7 @@ cl_program ocl_build_from_sources(
 	// printf("compiler options: %s\n", options);
 	err = clBuildProgram(program, 0, NULL, options, NULL, NULL);
 	get_hp_time(&t1);
-	printf("%.2f milliseconds for compiling\n", hp_time_diff(&t0, &t1) / 1000.0);
+	printf("%.3f seconds for OpenCL compiling\n", hp_time_diff(&t0, &t1) / 1000000.0);
 	if (err != CL_SUCCESS) {
 		fprintf(stderr, "failed to compile program, error: %s, build log:\n", ocl_err_msg(err));
 		size_t len;

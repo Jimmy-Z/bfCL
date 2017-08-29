@@ -16,13 +16,12 @@ static inline u64 to_dsi_bcd(u64 i) {
 // the caller should feed the target xor pad byte reversed as two uint64_t
 // the ctr from emmc_cid_sha1 byte reversed as 4 uint32_t
 __kernel void test_console_id(
-	u64 xor_l, u64 xor_h,
 	u64 console_id_template,
 	u32 ctr0, u32 ctr1, u32 ctr2, u32 ctr3,
-	__global int *success,
-	__global u64 *console_id_out)
+	u64 xor_l, u64 xor_h,
+	__global u64 *out)
 {
-	if(*success){
+	if(*out){
 		return;
 	}
 #ifdef BCD
@@ -42,7 +41,6 @@ __kernel void test_console_id(
 	aes_encrypt_128(aes_rk, ctr, (u32*)xor);
 
 	if(xor[0] == xor_l && xor[1] == xor_h){
-		*success = 1;
-		*console_id_out = console_id;
+		*out = console_id;
 	}
 }

@@ -3,13 +3,19 @@
 #include "utils.h"
 #include "ocl.h"
 
-void ocl_test();
+int ocl_test();
 
-void ocl_brute(const cl_uchar *console_id, const cl_uchar *emmc_cid,
-	const cl_uchar *offset, const cl_uchar *src, const cl_uchar *ver, int mode);
+int ocl_brute_console_id(const cl_uchar *console_id, const cl_uchar *emmc_cid,
+	const cl_uchar *offset, const cl_uchar *src, const cl_uchar *ver, int bcd);
+
+int ocl_brute_emmc_cid(const cl_uchar *console_id, const cl_uchar *emmc_cid,
+	const cl_uchar *offset, const cl_uchar *src, const cl_uchar *ver);
 
 int main(int argc, const char *argv[]) {
-	if (argc == 2 && !strcmp(argv[1], "info")) {
+	int ret = 0;
+	if (argc == 1) {
+		ret = ocl_test();
+	} else if (argc == 2 && !strcmp(argv[1], "info")) {
 		cl_uint num_platforms;
 		ocl_info(&num_platforms, 1);
 	} else if (argc == 7){
@@ -21,20 +27,22 @@ int main(int argc, const char *argv[]) {
 		hex2bytes(ver, 16, argv[6], 1);
 
 		if(!strcmp(argv[1], "console_id")){
-			ocl_brute(console_id, emmc_cid, offset, src, ver, 0);
+			ret = ocl_brute_console_id(console_id, emmc_cid, offset, src, ver, 0);
 		}else if(!strcmp(argv[1], "console_id_bcd")){
-			ocl_brute(console_id, emmc_cid, offset, src, ver, 1);
+			ret = ocl_brute_console_id(console_id, emmc_cid, offset, src, ver, 1);
+		}else if(!strcmp(argv[1], "emmc_cid")){
+			ret = ocl_brute_emmc_cid(console_id, emmc_cid, offset, src, ver);
 		}else{
 			puts("invalid parameters\n");
+			ret = -1;
 		}
-	} else if (argc == 1){
-		ocl_test();
+	} else {
+		printf("invalid parameters\n");
+		ret = -1;
+	}
 #ifdef _WIN32
 		system("pause");
 #endif
-	} else {
-		printf("invalid parameters\n");
-	}
-	return 0;
+	return ret;
 }
 

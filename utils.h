@@ -35,3 +35,5 @@ void dump_to_file(const char *file_name, const void *buf, size_t len);
 int cpu_has_rdrand();
 
 int rdrand_fill(unsigned long long *p, size_t size);
+
+char * trim(char *in);

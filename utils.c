@@ -145,3 +145,34 @@ int rdrand_fill(unsigned long long *p, size_t size) {
 	}
 	return success;
 }
+
+inline int is_white_space(char c) {
+	return c == ' ' || c == '\t' || c == '\n' || c == '\r';
+}
+
+// the crudest trim
+// it works by:
+//	setting the char next to the last non ws char to '\0'
+//	return the pointer to the first non ws character
+// so beware the input string got modified
+// and the returned ptr becomes unavailable if the input is gone
+// and if the input is malloced, you should save the ptr for free
+char * trim(char *in) {
+	char *first_non_ws = 0;
+	char *last_non_ws = 0;
+	while (*in) {
+		if (!is_white_space(*in)) {
+			if (!first_non_ws) {
+				first_non_ws = in;
+			}
+			last_non_ws = in;
+		}
+		++in;
+	}
+	// cut the trailing
+	++last_non_ws;
+	if (last_non_ws < in) {
+		*last_non_ws = '\0';
+	}
+	return first_non_ws;
+}
