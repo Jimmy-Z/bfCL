@@ -166,6 +166,10 @@ int ocl_brute_console_id(const cl_uchar *console_id, const cl_uchar *emmc_cid,
 	printf("%.2f seconds, %.2f M/s\n", td / 1000000.0, tested * 1.0 / td);
 
 	clReleaseKernel(kernel);
+	clReleaseMemObject(mem_out);
+	clReleaseProgram(program);
+	clReleaseCommandQueue(command_queue);
+	clReleaseContext(context);
 	return !out;
 }
 
@@ -276,5 +280,10 @@ int ocl_brute_emmc_cid(const cl_uchar *console_id, cl_uchar *emmc_cid,
 	printf("%.2f seconds, %.2f M/s\n", td / 1000000.0, tested * 1.0 / td);
 
 	clReleaseKernel(kernel);
+	clReleaseMemObject(mem_rk);
+	clReleaseMemObject(mem_out);
+	clReleaseProgram(program);
+	clReleaseCommandQueue(command_queue);
+	clReleaseContext(context);
 	return !out;
 }
