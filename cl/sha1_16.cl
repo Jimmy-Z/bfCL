@@ -8,12 +8,12 @@ __constant const uint32_t
 	h3 = 0x10325476,
 	h4 = 0xC3D2E1F0;
 
-void sha1_16(const uint32_t *in, uint32_t *out)
+void sha1_16(uint32_t *io)
 {
 	uint32_t temp, W[16],
 		A = h0, B = h1, C = h2, D = h3, E = h4;
 
-	W[0] = in[0]; W[1] = in[1]; W[2] = in[2]; W[3] = in[3];
+	W[0] = io[0]; W[1] = io[1]; W[2] = io[2]; W[3] = io[3];
 	W[4] = 0x80000000u; W[5] = 0; W[6] = 0; W[7] = 0;
 	W[8] = 0; W[9] = 0; W[10] = 0; W[11] = 0;
 	W[12] = 0; W[13] = 0; W[14] = 0; W[15] = 0x80u;
@@ -149,9 +149,9 @@ void sha1_16(const uint32_t *in, uint32_t *out)
 	C += h2;
 	D += h3;
 
-	out[0] = A;
-	out[1] = B;
-	out[2] = C;
-	out[3] = D;
+	io[0] = A;
+	io[1] = B;
+	io[2] = C;
+	io[3] = D;
 }
 

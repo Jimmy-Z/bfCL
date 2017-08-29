@@ -44,11 +44,9 @@ void aes_set_key_enc_128(uint32_t rk[RK_LEN])
 				 FT3[ ( Y2 >> 24 ) & 0xFF ];    \
 }
 
-void aes_encrypt_128(const uint32_t rk[RK_LEN],
-	const uint32_t *in, uint32_t *out)
-{
+void aes_encrypt_128(const uint32_t rk[RK_LEN], uint32_t *io) {
 	const uint32_t *RK = rk;
-	uint32_t X0 = in[0], X1 = in[1], X2 = in[2], X3 = in[3],
+	uint32_t X0 = io[0], X1 = io[1], X2 = io[2], X3 = io[3],
 		Y0, Y1, Y2, Y3;
 
 	X0 ^= *RK++;
@@ -90,8 +88,8 @@ void aes_encrypt_128(const uint32_t rk[RK_LEN],
 			( (uint32_t) FSb[ ( Y1 >> 16 ) & 0xFF ] << 16 ) ^
 			( (uint32_t) FSb[ ( Y2 >> 24 ) & 0xFF ] << 24 );
 
-	out[0] = X0;
-	out[1] = X1;
-	out[2] = X2;
-	out[3] = X3;
+	io[0] = X0;
+	io[1] = X1;
+	io[2] = X2;
+	io[3] = X3;
 }

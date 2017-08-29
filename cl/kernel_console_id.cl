@@ -1,6 +1,6 @@
 
 #ifdef BCD
-static inline u64 to_dsi_bcd(u64 i) {
+inline u64 to_dsi_bcd(u64 i) {
 	// 234 -> 0x234
 	u64 o = 0;
 	unsigned shift = 0;
@@ -37,10 +37,9 @@ __kernel void test_console_id(
 	aes_set_key_enc_128(aes_rk);
 
 	u32 ctr[4] = {ctr0, ctr1, ctr2, ctr3};
-	u64 xor[2];
-	aes_encrypt_128(aes_rk, ctr, (u32*)xor);
+	aes_encrypt_128(aes_rk, ctr);
 
-	if(xor[0] == xor_l && xor[1] == xor_h){
+	if(xor_l == *(u64*)ctr && xor_h == *(u64*)(ctr + 2)){
 		*out = console_id;
 	}
 }

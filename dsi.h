@@ -105,6 +105,15 @@ static inline void dsi_make_key(u64 *key, u64 console_id){
 	rol42_128(key);
 }
 
-static inline void dsi_make_ctr() {
-	
+static inline void dsi_make_ctr(u8 *ctr, const u8 *emmc_cid, u64 offset) {
+	u8 emmc_cid_sha1_16[16];
+	sha1_16(emmc_cid, emmc_cid_sha1_16);
+	add_128_64((u64*)emmc_cid_sha1_16, offset);
+	byte_reverse_16(ctr, emmc_cid_sha1_16);
+}
+
+static inline void dsi_make_xor(u8 *xor, const u8 *src, const u8 *ver) {
+	u8 target_xor[16];
+	xor_128((u64*)target_xor, (u64*)src, (u64*)ver);
+	byte_reverse_16(xor, target_xor);
 }
