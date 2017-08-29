@@ -67,6 +67,22 @@ int ocl_brute_console_id(const cl_uchar *console_id, const cl_uchar *emmc_cid,
 	cl_uint ctr[4];
 	dsi_make_ctr((u8*)ctr, emmc_cid, u16be(offset));
 	cl_ulong out = 0;
+#if DEBUG
+	{
+		printf("XOR     : %s\n", hexdump(xor, 16, 0));
+		u8 aes_key[16];
+		dsi_make_key(aes_key, u64be(console_id));
+		printf("AES KEY : %s\n", hexdump(aes_key, 16, 0));
+		cl_uint aes_rk[RK_LEN];
+		aes_gen_tables();
+		aes_set_key_enc_128(aes_rk, aes_key);
+		printf("AES RK  : %s\n", hexdump(aes_rk, 48, 0));
+		printf("CTR     : %s\n", hexdump(ctr, 16, 0));
+		aes_encrypt_128(aes_rk, (u8*)ctr, (u8*)xor);
+		printf("XOR TRY : %s\n", hexdump(xor, 16, 0));
+		// exit(1);
+	}
+#endif
 
 	// there's no option to create it zero initialized
 	cl_mem mem_out = OCL_ASSERT2(clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(cl_ulong), NULL, &err));
@@ -98,7 +114,9 @@ int ocl_brute_console_id(const cl_uchar *console_id, const cl_uchar *emmc_cid,
 	}
 	// it needs to be aligned, a little overhead hurts nobody
 	if (num_items % local) {
+		// printf("alignment: %"LL"d -> ", num_items);
 		num_items = (num_items / local + 1) * local;
+		// printf("%"LL"d\n", num_items);
 	}
 	console_id_template &= ((cl_ulong)-1ll) << (64 - template_bits);
 	// printf("total: %I64u, 0x%I64x\n", total, total);
@@ -128,7 +146,7 @@ int ocl_brute_console_id(const cl_uchar *console_id, const cl_uchar *emmc_cid,
 		OCL_ASSERT(clEnqueueReadBuffer(command_queue, mem_out, CL_TRUE, 0, sizeof(cl_ulong), &out, 0, NULL, NULL));
 		if (out) {
 			get_hp_time(&t1); td = hp_time_diff(&t0, &t1);
-			printf("got a hit in %.2f seconds: %016"LL"x\n", td / 1000000.0, out);
+			printf("got a hit: %016"LL"x\n", out);
 			// also write to a file
 			dump_to_file(hexdump(emmc_cid, 16, 0), &out, 8);
 			break;
@@ -186,15 +204,26 @@ int ocl_brute_emmc_cid(const cl_uchar *console_id, cl_uchar *emmc_cid,
 	// preparing args
 	cl_uint aes_rk[RK_LEN];
 	u8 aes_key[16];
-	dsi_make_key((u64*)aes_key, u64be(console_id));
+	dsi_make_key(aes_key, u64be(console_id));
+	aes_gen_tables();
 	aes_set_key_enc_128(aes_rk, aes_key);
 	cl_ulong u_offset = u16be(offset);
 	cl_ulong xor[2];
 	dsi_make_xor((u8*)xor, src, ver);
 	cl_ulong out = 0;
-	printf("AES KEY : %s\n", hexdump(aes_key, 16, 0));
-	printf("AES RK  : %s\n", hexdump(aes_rk, 48, 0));
-	printf("XOR     : %s\n", hexdump(xor, 16, 0));
+#ifdef DEBUG
+	{
+		printf("XOR     : %s\n", hexdump(xor, 16, 0));
+		printf("AES KEY : %s\n", hexdump(aes_key, 16, 0));
+		printf("AES RK  : %s\n", hexdump(aes_rk, 48, 0));
+		u8 ctr[16];
+		dsi_make_ctr(ctr, emmc_cid, u_offset);
+		printf("CTR     : %s\n", hexdump(ctr, 16, 0));
+		aes_encrypt_128(aes_rk, ctr, (u8*)xor);
+		printf("XOR TRY : %s\n", hexdump(xor, 16, 0));
+		// exit(1);
+	}
+#endif
 
 	cl_mem mem_rk = OCL_ASSERT2(clCreateBuffer(context, CL_MEM_READ_ONLY, sizeof(aes_rk), NULL, &err));
 	OCL_ASSERT(clEnqueueWriteBuffer(command_queue, mem_rk, CL_TRUE, 0, sizeof(aes_rk), aes_rk, 0, NULL, NULL));
@@ -213,7 +242,7 @@ int ocl_brute_emmc_cid(const cl_uchar *console_id, cl_uchar *emmc_cid,
 	}
 	get_hp_time(&t0);
 	for (unsigned i = 0; i < loops; ++i) {
-		// *(u32*)(emmc_cid + 1) = i << group_bits;
+		*(u32*)(emmc_cid + 1) = i << group_bits;
 		puts(hexdump(emmc_cid, 16, 0));
 		OCL_ASSERT(clSetKernelArg(kernel, 0, sizeof(cl_mem), &mem_rk));
 		OCL_ASSERT(clSetKernelArg(kernel, 1, sizeof(cl_ulong), emmc_cid));
@@ -223,21 +252,16 @@ int ocl_brute_emmc_cid(const cl_uchar *console_id, cl_uchar *emmc_cid,
 		OCL_ASSERT(clSetKernelArg(kernel, 5, sizeof(cl_ulong), &xor[1]));
 		OCL_ASSERT(clSetKernelArg(kernel, 6, sizeof(cl_mem), &mem_out));
 
-		num_items = 1;
-		local = 1;
 		OCL_ASSERT(clEnqueueNDRangeKernel(command_queue, kernel, 1, NULL, &num_items, &local, 0, NULL, NULL));
 		clFinish(command_queue);
 
 		OCL_ASSERT(clEnqueueReadBuffer(command_queue, mem_out, CL_TRUE, 0, sizeof(cl_ulong), &out, 0, NULL, NULL));
-		printf("info: %s\n", hexdump(&out, 8, 0));
-		break;
 		if (out) {
 			get_hp_time(&t1); td = hp_time_diff(&t0, &t1);
-			printf("got a hit in %.2f seconds: %s", td / 1000000.0,
-				hexdump(&out, 8, 0));
-			puts(hexdump(emmc_cid + 8, 8, 0));
+			*(u32*)(emmc_cid + 1) |= out;
+			printf("got a hit: %s\n", hexdump(emmc_cid, 16, 0));
 			// also write to a file
-			dump_to_file(hexdump(console_id, 8, 0), &out, 8);
+			dump_to_file(hexdump(console_id, 8, 0), emmc_cid, 16);
 			break;
 		}
 	}
@@ -247,7 +271,7 @@ int ocl_brute_emmc_cid(const cl_uchar *console_id, cl_uchar *emmc_cid,
 		tested = 1ull << 32;
 		get_hp_time(&t1); td = hp_time_diff(&t0, &t1);
 	} else {
-		tested = *(u32*)(((u8*)&out) + 1);
+		tested = *(u32*)(emmc_cid + 1);
 	}
 	printf("%.2f seconds, %.2f M/s\n", td / 1000000.0, tested * 1.0 / td);
 

@@ -27,9 +27,7 @@ __kernel void test_emmc_cid(
 
 	aes_encrypt_128(aes_rk, (u32*)ctr);
 
-	*out = *(u64*)(ctr);
-	return;
-	if (xor_l == *(u64*)ctr && xor_h == *(u64*)(ctr + 2)) {
-		*out = *(u64*)emmc_cid;
+	if (xor_l == *(u64*)ctr && xor_h == *(u64*)(ctr + 8)) {
+		*out = get_global_id(0);
 	}
 }
