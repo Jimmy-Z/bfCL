@@ -11,3 +11,4 @@ $(PNAME) : $(OBJS)
 
 clean :
 	rm $(PNAME) *.o
+

@@ -232,3 +232,4 @@ void aes_encrypt_128( const uint32_t rk[RK_LEN],
     PUT_UINT32_LE( X2, output,  8 );
     PUT_UINT32_LE( X3, output, 12 );
 }
+

@@ -31,3 +31,4 @@ __kernel void test_emmc_cid(
 		*out = get_global_id(0);
 	}
 }
+

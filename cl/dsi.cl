@@ -75,3 +75,4 @@ inline void dsi_make_ctr(u8 *ctr, u8 *emmc_cid, u64 offset) {
 	add_128_64((u64*)emmc_cid, offset);
 	byte_reverse_16(ctr, emmc_cid);
 }
+

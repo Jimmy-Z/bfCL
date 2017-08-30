@@ -93,3 +93,4 @@ void aes_encrypt_128(const uint32_t rk[RK_LEN], uint32_t *io) {
 	io[2] = X2;
 	io[3] = X3;
 }
+

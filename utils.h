@@ -37,3 +37,4 @@ int cpu_has_rdrand();
 int rdrand_fill(unsigned long long *p, size_t size);
 
 char * trim(char *in);
+

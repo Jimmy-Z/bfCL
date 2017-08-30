@@ -237,3 +237,4 @@ cl_program ocl_build_from_sources(
 	free(source_sizes);
 	return program;
 }
+

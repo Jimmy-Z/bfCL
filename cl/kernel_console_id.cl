@@ -43,3 +43,4 @@ __kernel void test_console_id(
 		*out = console_id;
 	}
 }
+

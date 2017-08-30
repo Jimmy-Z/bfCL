@@ -287,3 +287,4 @@ int ocl_brute_emmc_cid(const cl_uchar *console_id, cl_uchar *emmc_cid,
 	clReleaseContext(context);
 	return !out;
 }
+

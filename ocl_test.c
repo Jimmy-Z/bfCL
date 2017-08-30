@@ -196,3 +196,4 @@ int ocl_test() {
 
 	return succeed;
 }
+

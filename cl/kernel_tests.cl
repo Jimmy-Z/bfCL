@@ -22,7 +22,7 @@ __kernel void sha1_16_test(
 	}
 #endif
 }
-	
+
 #define AES_BLOCK_SIZE 16
 
 __kernel void aes_128_ecb_test(
@@ -47,3 +47,4 @@ __kernel void aes_128_ecb_test(
 	}
 #endif
 }
+
