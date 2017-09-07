@@ -4,6 +4,7 @@
 #include "crypto.h"
 #include "ocl.h"
 #include "dsi.h"
+#include "ocl_brute.h"
 
 // 123 -> 0x123
 static cl_ulong to_bcd(cl_ulong i) {
@@ -29,7 +30,7 @@ static cl_ulong from_bcd(cl_ulong i) {
 }
 
 int ocl_brute_console_id(const cl_uchar *console_id, const cl_uchar *emmc_cid,
-	const cl_uchar *offset, const cl_uchar *src, const cl_uchar *ver, int bcd)
+	const cl_uchar *offset, const cl_uchar *src, const cl_uchar *ver, ocl_brute_mode mode)
 {
 	TimeHP t0, t1; long long td = 0;
 
@@ -51,8 +52,18 @@ int ocl_brute_console_id(const cl_uchar *console_id, const cl_uchar *emmc_cid,
 		"cl/aes_128.cl",
 		"cl/dsi.cl",
 		"cl/kernel_console_id.cl" };
+	const char * options;
+	if (mode == NORMAL) {
+		options = "-w -Werror";
+	} else if (mode == BCD) {
+		options = "-w -Werror -DBCD";
+	} else if (mode == CTR) {
+		options = "-w -Werror -DCTR";
+	} else {
+		return -1;
+	}
 	cl_program program = ocl_build_from_sources(sizeof(source_names) / sizeof(char *),
-		source_names, context, device_id, bcd ? "-w -Werror -DBCD" : "-w -Werror");
+		source_names, context, device_id, options);
 
 	cl_kernel kernel = OCL_ASSERT2(clCreateKernel(program, "test_console_id", &err));
 
@@ -93,7 +104,18 @@ int ocl_brute_console_id(const cl_uchar *console_id, const cl_uchar *emmc_cid,
 	unsigned group_bits;
 	size_t num_items;
 	unsigned loops;
-	if (bcd) {
+	if (mode == NORMAL || mode == CTR) {
+		// CTR mode is actually quite similar to NORMAL except we brute the lower 31 bits
+		// since bit 31 doesn't matter, got ORed with 1 when making key
+		template_bits = 32;
+		total = 1ull << (64 - template_bits);
+		group_bits = 28;
+		num_items = 1ull << group_bits; // 268435456
+		loops = 1 << (64 - template_bits - group_bits);
+		if (mode == CTR) {
+			loops >>= 1;
+		}
+	} else {
 		// 0x08a15????????1?? as example, 10 digit to brute, beware the known digit near the end
 		// 5 BCD digits, used to calculate template mask
 		template_bits = 20;
@@ -105,12 +127,6 @@ int ocl_brute_console_id(const cl_uchar *console_id, const cl_uchar *emmc_cid,
 		num_items = from_bcd(1ull << (group_bits - 4));
 		// between the template bits and group bits, it's the loop bits
 		loops = from_bcd(1 << (64 - template_bits - group_bits));
-	} else {
-		template_bits = 32;
-		total = 1ull << (64 - template_bits);
-		group_bits = 28;
-		num_items = 1ull << group_bits; // 268435456
-		loops = 1 << (64 - template_bits - group_bits);
 	}
 	// it needs to be aligned, a little overhead hurts nobody
 	if (num_items % local) {
@@ -125,10 +141,10 @@ int ocl_brute_console_id(const cl_uchar *console_id, const cl_uchar *emmc_cid,
 	get_hp_time(&t0);
 	for (unsigned i = 0; i < loops; ++i) {
 		cl_ulong console_id = console_id_template;
-		if (bcd) {
+		if (mode == BCD) {
 			console_id |= to_bcd(i) << group_bits;
 		} else {
-			console_id |= i << group_bits;
+			console_id |= (u64)i << group_bits;
 		}
 		printf("%016"LL"x\n", console_id);
 		OCL_ASSERT(clSetKernelArg(kernel, 0, sizeof(cl_ulong), &console_id));
@@ -158,8 +174,9 @@ int ocl_brute_console_id(const cl_uchar *console_id, const cl_uchar *emmc_cid,
 		tested = total;
 		get_hp_time(&t1); td = hp_time_diff(&t0, &t1);
 	} else {
-		tested = out - console_id_template;
-		if (bcd) {
+		if (mode == NORMAL || mode == CTR) {
+			tested = out - console_id_template;
+		} else if (mode == BCD) {
 			tested = from_bcd(((tested & ~0xfff) >> 4) | (tested & 0xff));
 		}
 	}

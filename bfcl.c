@@ -2,14 +2,9 @@
 #include <stdio.h>
 #include "utils.h"
 #include "ocl.h"
+#include "ocl_brute.h"
 
 int ocl_test();
-
-int ocl_brute_console_id(const cl_uchar *console_id, const cl_uchar *emmc_cid,
-	const cl_uchar *offset, const cl_uchar *src, const cl_uchar *ver, int bcd);
-
-int ocl_brute_emmc_cid(const cl_uchar *console_id, const cl_uchar *emmc_cid,
-	const cl_uchar *offset, const cl_uchar *src, const cl_uchar *ver);
 
 int main(int argc, const char *argv[]) {
 	int ret = 0;
@@ -27,9 +22,11 @@ int main(int argc, const char *argv[]) {
 		hex2bytes(ver, 16, argv[6], 1);
 
 		if(!strcmp(argv[1], "console_id")){
-			ret = ocl_brute_console_id(console_id, emmc_cid, offset, src, ver, 0);
+			ret = ocl_brute_console_id(console_id, emmc_cid, offset, src, ver, NORMAL);
 		}else if(!strcmp(argv[1], "console_id_bcd")){
-			ret = ocl_brute_console_id(console_id, emmc_cid, offset, src, ver, 1);
+			ret = ocl_brute_console_id(console_id, emmc_cid, offset, src, ver, BCD);
+		}else if(!strcmp(argv[1], "console_id_3ds")){
+			ret = ocl_brute_console_id(console_id, emmc_cid, offset, src, ver, CTR);
 		}else if(!strcmp(argv[1], "emmc_cid")){
 			ret = ocl_brute_emmc_cid(console_id, emmc_cid, offset, src, ver);
 		}else{
