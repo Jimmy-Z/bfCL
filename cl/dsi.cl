@@ -44,7 +44,11 @@ inline void rol42_128(u64 *a){
 // eMMC Encryption for MBR/Partitions (AES-CTR, with console-specific key)
 inline void dsi_make_key(u64 *key, u64 console_id){
 	u32 h = console_id >> 32, l = (u32)console_id;
+#ifdef CTR
+	u32 key_x[4] = {(l ^ 0xb358a6af) | 0x80000000, 0x544e494e, 0x4f444e45, h ^ 0x08c267b7};
+#else
 	u32 key_x[4] = {l, l ^ 0x24ee6906, h ^ 0xe65b601d, h};
+#endif
 	// Key = ((Key_X XOR Key_Y) + FFFEFB4E295902582A680F5F1A4F3E79h) ROL 42
 	// equivalent to F_XY in twltool/f_xy.c
 	// xor_128(key, (u64*)key_x, DSi_KEY_Y);
