@@ -180,6 +180,9 @@ void ocl_get_device(cl_platform_id *p_platform_id, cl_device_id *p_device_id) {
 			if (devices[j].type == CL_DEVICE_TYPE_GPU
 #endif
 				&& devices[j].c_avail == CL_TRUE
+#ifdef ENABLE_GPU_BLACKLIST
+				&& strcmp((const char*)devices[j].name, "Capeverde")
+#endif
 				&& (cl_ulong)devices[j].max_compute_units * devices[j].max_work_group_size > maximum) {
 				maximum = devices[j].max_compute_units;
 				pl_idx = i;

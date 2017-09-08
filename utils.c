@@ -44,10 +44,6 @@ int hex2bytes(unsigned char *out, unsigned byte_len, const char *in, int critica
 	return 0;
 }
 
-#ifndef HEXDUMP_BUF_SIZE
-#define HEXDUMP_BUF_SIZE 0x100
-#endif
-
 static char hexdump_buf[HEXDUMP_BUF_SIZE];
 // CAUTION, this always assume the buffer is big enough
 const char *hexdump(const void *b, unsigned l, int space){
