@@ -8,7 +8,7 @@ inline void memcpy64_from_constant(u64 *out, __constant const u64 *in, unsigned 
 __kernel void test_emmc_cid(
 	__constant u64 constant_aes_rk[RK_LEN >> 1],
 	u64 emmc_cid_l, u64 emmc_cid_h,
-	u64 offset,
+	u32 offset,
 	u64 xor_l, u64 xor_h,
 	__global u64 *out)
 {

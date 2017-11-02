@@ -38,14 +38,6 @@ static inline u32 u32be(const u8 *in){
 	return out;
 }
 
-static inline u16 u16be(const u8 *in){
-	u16 out;
-	u8 *out8 = (u8*)&out;
-	out8[0] = in[1];
-	out8[1] = in[0];
-	return out;
-}
-
 // CAUTION this one doesn't work in-place
 static inline void byte_reverse_16(u8 *out, const u8 *in){
 	out[0] = in[15];

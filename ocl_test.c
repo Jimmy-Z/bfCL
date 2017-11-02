@@ -159,8 +159,8 @@ int ocl_test() {
 
 	int succeed = verify(test_name, buf_in, buf_out, buf_verify);
 
-	// AES 128 ECB test
-	test_name = "aes_128_ecb_test";
+	// AES encrypt test
+	test_name = "aes_enc_128_test";
 
 	kernel = OCL_ASSERT2(clCreateKernel(program, test_name, &err));
 
@@ -173,7 +173,7 @@ int ocl_test() {
 	get_hp_time(&t0);
 	for (unsigned offset = 0; offset < BUF_SIZE; offset += BLOCK_SIZE) {
 		// setting the same key over and over is stupid
-		// yet we still do it to make the results comparable
+		// we do this to make the results comparable
 		aes_set_key_enc_128(aes_rk, key);
 		aes_encrypt_128(aes_rk, buf_in + offset, buf_verify + offset);
 	}
@@ -182,8 +182,31 @@ int ocl_test() {
 	// dump_to_file("r:/test_aes_in.bin", buf_in, BUF_SIZE);
 	// dump_to_file("r:/test_aes_out.bin", buf_out, BUF_SIZE);
 	// dump_to_file("r:/test_aes_verify.bin", buf_verify, BUF_SIZE);
+	printf("\t%s\n", hexdump(buf_in, BLOCK_SIZE, 1));
+	printf("\t%s\n", hexdump(buf_out, BLOCK_SIZE, 1));
+	printf("\t%s\n", hexdump(buf_verify, BLOCK_SIZE, 1));
 
 	succeed |= verify(test_name, buf_in, buf_out, buf_verify);
+
+	// AES decrypt test
+	test_name = "aes_dec_128_test";
+	// use the encrypt output as input
+	OCL_ASSERT(clEnqueueWriteBuffer(command_queue, mem_in, CL_TRUE, 0, BUF_SIZE, buf_out, 0, NULL, NULL));
+
+	kernel = OCL_ASSERT2(clCreateKernel(program, test_name, &err));
+
+	OCL_ASSERT(clSetKernelArg(kernel, 0, sizeof(cl_mem), &mem_key));
+	OCL_ASSERT(clSetKernelArg(kernel, 1, sizeof(cl_mem), &mem_in));
+	OCL_ASSERT(clSetKernelArg(kernel, 2, sizeof(cl_mem), &mem_out));
+
+	// read out to buf_verify
+	ocl_test_run_and_read(test_name, kernel, device_id, command_queue, mem_out, buf_verify);
+	printf("\t%s\n", hexdump(buf_out, BLOCK_SIZE, 1));
+	printf("\t%s\n", hexdump(buf_verify, BLOCK_SIZE, 1));
+	printf("\t%s\n", hexdump(buf_in, BLOCK_SIZE, 1));
+
+	// verify against buf_in
+	succeed |= verify(test_name, buf_out, buf_verify, buf_in);
 
 	// cleanup
 	free(buf_in); free(buf_out); free(buf_verify);
