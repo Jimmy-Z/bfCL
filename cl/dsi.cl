@@ -34,6 +34,13 @@ inline void add_128_64(u64 *a, u64 b){
 	}
 }
 
+inline void sub_128_64(u64 *a, u64 b) {
+	if (a[0] < b) {
+		a[1] -= 1;
+	}
+	a[0] -= b;
+}
+
 // Answer to life, universe and everything.
 inline void rol42_128(u64 *a){
 	u64 t = a[1];

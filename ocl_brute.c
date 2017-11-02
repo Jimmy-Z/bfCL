@@ -30,7 +30,9 @@ static cl_ulong from_bcd(cl_ulong i) {
 }
 
 int ocl_brute_console_id(const cl_uchar *console_id, const cl_uchar *emmc_cid,
-	const cl_uchar *offset, const cl_uchar *src, const cl_uchar *ver, ocl_brute_mode mode)
+	cl_uint offset0, const cl_uchar *src0, const cl_uchar *ver0,
+	cl_uint offset1, const cl_uchar *src1, const cl_uchar *ver1,
+	ocl_brute_mode mode)
 {
 	TimeHP t0, t1; long long td = 0;
 
@@ -51,7 +53,8 @@ int ocl_brute_console_id(const cl_uchar *console_id, const cl_uchar *emmc_cid,
 		"cl/aes_tables.cl",
 		"cl/aes_128.cl",
 		"cl/dsi.cl",
-		"cl/kernel_console_id.cl" };
+		"cl/bcd.cl",
+		emmc_cid != 0 ? "cl/kernel_console_id.cl" : "cl/kernel_console_id_ds3.cl" };
 	const char * options;
 	if (mode == NORMAL) {
 		options = "-w -Werror";
@@ -65,7 +68,7 @@ int ocl_brute_console_id(const cl_uchar *console_id, const cl_uchar *emmc_cid,
 	cl_program program = ocl_build_from_sources(sizeof(source_names) / sizeof(char *),
 		source_names, context, device_id, options);
 
-	cl_kernel kernel = OCL_ASSERT2(clCreateKernel(program, "test_console_id", &err));
+	cl_kernel kernel = OCL_ASSERT2(clCreateKernel(program, emmc_cid != 0 ? "test_console_id" : "test_console_id_ds3", &err));
 
 	size_t local;
 	OCL_ASSERT(clGetKernelWorkGroupInfo(kernel, device_id, CL_KERNEL_WORK_GROUP_SIZE, sizeof(local), &local, NULL));
@@ -73,10 +76,16 @@ int ocl_brute_console_id(const cl_uchar *console_id, const cl_uchar *emmc_cid,
 
 	// preparing args
 	cl_ulong console_id_template = u64be(console_id);
-	cl_ulong xor[2];
-	dsi_make_xor((u8*)xor, src, ver);
-	cl_uint ctr[4];
-	dsi_make_ctr((u8*)ctr, emmc_cid, u16be(offset));
+	cl_ulong xor0[2] = { 0 }, xor1[2] = { 0 };
+	dsi_make_xor((u8*)xor0, src0, ver0);
+	printf("offsets: %d, %d\n", offset0, offset1);
+	if (src1 != 0) {
+		dsi_make_xor((u8*)xor1, src1, ver1);
+	}
+	cl_uint ctr[4] = { 0 };
+	if (emmc_cid != 0) {
+		dsi_make_ctr((u8*)ctr, emmc_cid, offset0);
+	}
 	cl_ulong out = 0;
 #if DEBUG
 	{
@@ -118,7 +127,7 @@ int ocl_brute_console_id(const cl_uchar *console_id, const cl_uchar *emmc_cid,
 	} else {
 		// 0x08a15????????1?? as example, 10 digit to brute, beware the known digit near the end
 		// 5 BCD digits, used to calculate template mask
-		template_bits = 20;
+		template_bits = 28;
 		// I wish we could use 1e10 in C, counting 0 is not good to your eye
 		total = from_bcd(1ull << 40);
 		// work items variations on lower bits per enqueue, 8 + 1 digits, including the known digit
@@ -148,13 +157,22 @@ int ocl_brute_console_id(const cl_uchar *console_id, const cl_uchar *emmc_cid,
 		}
 		printf("%016"LL"x\n", console_id);
 		OCL_ASSERT(clSetKernelArg(kernel, 0, sizeof(cl_ulong), &console_id));
-		OCL_ASSERT(clSetKernelArg(kernel, 1, sizeof(cl_uint), &ctr[0]));
-		OCL_ASSERT(clSetKernelArg(kernel, 2, sizeof(cl_uint), &ctr[1]));
-		OCL_ASSERT(clSetKernelArg(kernel, 3, sizeof(cl_uint), &ctr[2]));
-		OCL_ASSERT(clSetKernelArg(kernel, 4, sizeof(cl_uint), &ctr[3]));
-		OCL_ASSERT(clSetKernelArg(kernel, 5, sizeof(cl_ulong), &xor[0]));
-		OCL_ASSERT(clSetKernelArg(kernel, 6, sizeof(cl_ulong), &xor[1]));
 		OCL_ASSERT(clSetKernelArg(kernel, 7, sizeof(cl_mem), &mem_out));
+		if (emmc_cid != 0) {
+			OCL_ASSERT(clSetKernelArg(kernel, 1, sizeof(cl_uint), &ctr[0]));
+			OCL_ASSERT(clSetKernelArg(kernel, 2, sizeof(cl_uint), &ctr[1]));
+			OCL_ASSERT(clSetKernelArg(kernel, 3, sizeof(cl_uint), &ctr[2]));
+			OCL_ASSERT(clSetKernelArg(kernel, 4, sizeof(cl_uint), &ctr[3]));
+			OCL_ASSERT(clSetKernelArg(kernel, 5, sizeof(cl_ulong), &xor0[0]));
+			OCL_ASSERT(clSetKernelArg(kernel, 6, sizeof(cl_ulong), &xor0[1]));
+		} else {
+			OCL_ASSERT(clSetKernelArg(kernel, 1, sizeof(cl_uint), &offset0));
+			OCL_ASSERT(clSetKernelArg(kernel, 2, sizeof(cl_ulong), &xor0[0]));
+			OCL_ASSERT(clSetKernelArg(kernel, 3, sizeof(cl_ulong), &xor0[1]));
+			OCL_ASSERT(clSetKernelArg(kernel, 4, sizeof(cl_uint), &offset1));
+			OCL_ASSERT(clSetKernelArg(kernel, 5, sizeof(cl_ulong), &xor1[0]));
+			OCL_ASSERT(clSetKernelArg(kernel, 6, sizeof(cl_ulong), &xor1[1]));
+		}
 
 		OCL_ASSERT(clEnqueueNDRangeKernel(command_queue, kernel, 1, NULL, &num_items, &local, 0, NULL, NULL));
 		clFinish(command_queue);
@@ -191,7 +209,7 @@ int ocl_brute_console_id(const cl_uchar *console_id, const cl_uchar *emmc_cid,
 }
 
 int ocl_brute_emmc_cid(const cl_uchar *console_id, cl_uchar *emmc_cid,
-	const cl_uchar *offset, const cl_uchar *src, const cl_uchar *ver)
+	cl_uint offset, const cl_uchar *src, const cl_uchar *ver)
 {
 	TimeHP t0, t1; long long td = 0;
 
@@ -228,7 +246,6 @@ int ocl_brute_emmc_cid(const cl_uchar *console_id, cl_uchar *emmc_cid,
 	dsi_make_key(aes_key, u64be(console_id));
 	aes_gen_tables();
 	aes_set_key_enc_128(aes_rk, aes_key);
-	cl_ulong u_offset = u16be(offset);
 	cl_ulong xor[2];
 	dsi_make_xor((u8*)xor, src, ver);
 	cl_ulong out = 0;
@@ -268,7 +285,7 @@ int ocl_brute_emmc_cid(const cl_uchar *console_id, cl_uchar *emmc_cid,
 		OCL_ASSERT(clSetKernelArg(kernel, 0, sizeof(cl_mem), &mem_rk));
 		OCL_ASSERT(clSetKernelArg(kernel, 1, sizeof(cl_ulong), emmc_cid));
 		OCL_ASSERT(clSetKernelArg(kernel, 2, sizeof(cl_ulong), emmc_cid + 8));
-		OCL_ASSERT(clSetKernelArg(kernel, 3, sizeof(cl_ulong), &u_offset));
+		OCL_ASSERT(clSetKernelArg(kernel, 3, sizeof(cl_uint), &offset));
 		OCL_ASSERT(clSetKernelArg(kernel, 4, sizeof(cl_ulong), &xor[0]));
 		OCL_ASSERT(clSetKernelArg(kernel, 5, sizeof(cl_ulong), &xor[1]));
 		OCL_ASSERT(clSetKernelArg(kernel, 6, sizeof(cl_mem), &mem_out));

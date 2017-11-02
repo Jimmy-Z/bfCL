@@ -20,10 +20,6 @@ void get_hp_time(TimeHP *pt);
 
 #endif
 
-#ifndef HEXDUMP_BUF_SIZE
-#define HEXDUMP_BUF_SIZE 0x100
-#endif
-
 long long hp_time_diff(TimeHP *pt0, TimeHP *pt1);
 
 int hex2bytes(unsigned char *out, unsigned byte_len, const char *in, int critical);

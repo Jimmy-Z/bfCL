@@ -1,18 +1,4 @@
 
-#ifdef BCD
-inline u64 to_dsi_bcd(u64 i) {
-	// 234 -> 0x234
-	u64 o = 0;
-	unsigned shift = 0;
-	while (i) {
-		o |= (i % 10) << (shift++ << 2);
-		i /= 10;
-	}
-	// 0x234 -> 0x2134
-	return ((o & ~0xff) << 4) | 0x100 | (o & 0xff);
-}
-#endif
-
 // the caller should feed the target xor pad byte reversed as two uint64_t
 // the ctr from emmc_cid_sha1 byte reversed as 4 uint32_t
 __kernel void test_console_id(
