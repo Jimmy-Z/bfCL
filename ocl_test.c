@@ -182,9 +182,6 @@ int ocl_test() {
 	// dump_to_file("r:/test_aes_in.bin", buf_in, BUF_SIZE);
 	// dump_to_file("r:/test_aes_out.bin", buf_out, BUF_SIZE);
 	// dump_to_file("r:/test_aes_verify.bin", buf_verify, BUF_SIZE);
-	printf("\t%s\n", hexdump(buf_in, BLOCK_SIZE, 1));
-	printf("\t%s\n", hexdump(buf_out, BLOCK_SIZE, 1));
-	printf("\t%s\n", hexdump(buf_verify, BLOCK_SIZE, 1));
 
 	succeed |= verify(test_name, buf_in, buf_out, buf_verify);
 
@@ -201,9 +198,6 @@ int ocl_test() {
 
 	// read out to buf_verify
 	ocl_test_run_and_read(test_name, kernel, device_id, command_queue, mem_out, buf_verify);
-	printf("\t%s\n", hexdump(buf_out, BLOCK_SIZE, 1));
-	printf("\t%s\n", hexdump(buf_verify, BLOCK_SIZE, 1));
-	printf("\t%s\n", hexdump(buf_in, BLOCK_SIZE, 1));
 
 	// verify against buf_in
 	succeed |= verify(test_name, buf_out, buf_verify, buf_in);

@@ -61,10 +61,8 @@ void aes_set_key_dec_128(uint32_t rk[RK_LEN]) {
 	*RK++ = *SK++;
 
 	int i, j;
-	for (i = 9, SK -= 8; i > 0; i--, SK -= 8)
-	{
-		for (j = 0; j < 4; j++, SK++)
-		{
+	for (i = 9, SK -= 8; i > 0; i--, SK -= 8) {
+		for (j = 0; j < 4; j++, SK++) {
 			*RK++ = RT0[FSb[(*SK) & 0xFF]] ^
 				RT1[FSb[(*SK >> 8) & 0xFF]] ^
 				RT2[FSb[(*SK >> 16) & 0xFF]] ^
@@ -126,13 +124,11 @@ void aes_set_key_dec_128(uint32_t rk[RK_LEN]) {
 
 void aes_encrypt_128(const uint32_t rk[RK_LEN], uint32_t *io) {
 	const uint32_t *RK = rk;
-	uint32_t X0 = io[0], X1 = io[1], X2 = io[2], X3 = io[3],
-		Y0, Y1, Y2, Y3;
-
-	X0 ^= *RK++;
-	X1 ^= *RK++;
-	X2 ^= *RK++;
-	X3 ^= *RK++;
+	uint32_t Y0, Y1, Y2, Y3,
+		X0 = io[0] ^ *RK++,
+		X1 = io[1] ^ *RK++,
+		X2 = io[2] ^ *RK++,
+		X3 = io[3] ^ *RK++;
 
 	// loop unrolled
 	AES_FROUND(Y0, Y1, Y2, Y3, X0, X1, X2, X3);
@@ -178,8 +174,11 @@ void aes_encrypt_128(const uint32_t rk[RK_LEN], uint32_t *io) {
 
 void aes_decrypt_128(const uint32_t rk[RK_LEN], uint32_t *io) {
 	const uint32_t *RK = rk;
-	uint32_t X0 = io[0], X1 = io[1], X2 = io[2], X3 = io[3],
-		Y0, Y1, Y2, Y3;
+	uint32_t Y0, Y1, Y2, Y3,
+		X0 = io[0] ^ *RK++,
+		X1 = io[1] ^ *RK++,
+		X2 = io[2] ^ *RK++,
+		X3 = io[3] ^ *RK++;
 
 	AES_RROUND(Y0, Y1, Y2, Y3, X0, X1, X2, X3);
 	AES_RROUND(X0, X1, X2, X3, Y0, Y1, Y2, Y3);

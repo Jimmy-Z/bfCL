@@ -78,7 +78,6 @@ int ocl_brute_console_id(const cl_uchar *console_id, const cl_uchar *emmc_cid,
 	cl_ulong console_id_template = u64be(console_id);
 	cl_ulong xor0[2] = { 0 }, xor1[2] = { 0 };
 	dsi_make_xor((u8*)xor0, src0, ver0);
-	printf("offsets: %d, %d\n", offset0, offset1);
 	if (src1 != 0) {
 		dsi_make_xor((u8*)xor1, src1, ver1);
 	}
@@ -127,7 +126,7 @@ int ocl_brute_console_id(const cl_uchar *console_id, const cl_uchar *emmc_cid,
 	} else {
 		// 0x08a15????????1?? as example, 10 digit to brute, beware the known digit near the end
 		// 5 BCD digits, used to calculate template mask
-		template_bits = 28;
+		template_bits = 20;
 		// I wish we could use 1e10 in C, counting 0 is not good to your eye
 		total = from_bcd(1ull << 40);
 		// work items variations on lower bits per enqueue, 8 + 1 digits, including the known digit
@@ -182,7 +181,7 @@ int ocl_brute_console_id(const cl_uchar *console_id, const cl_uchar *emmc_cid,
 			get_hp_time(&t1); td = hp_time_diff(&t0, &t1);
 			printf("got a hit: %016"LL"x\n", out);
 			// also write to a file
-			dump_to_file(hexdump(emmc_cid, 16, 0), &out, 8);
+			dump_to_file(emmc_cid ? hexdump(emmc_cid, 16, 0) : hexdump(src0, 16, 0), &out, 8);
 			break;
 		}
 	}
@@ -192,9 +191,8 @@ int ocl_brute_console_id(const cl_uchar *console_id, const cl_uchar *emmc_cid,
 		tested = total;
 		get_hp_time(&t1); td = hp_time_diff(&t0, &t1);
 	} else {
-		if (mode == NORMAL || mode == CTR) {
-			tested = out - console_id_template;
-		} else if (mode == BCD) {
+		tested = out - console_id_template;
+		if (mode == BCD) {
 			tested = from_bcd(((tested & ~0xfff) >> 4) | (tested & 0xff));
 		}
 	}

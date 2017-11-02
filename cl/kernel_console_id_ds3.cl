@@ -30,10 +30,14 @@ __kernel void test_console_id_ds3(
 	aes_decrypt_128(aes_rk, (u32*)xor0);
 	aes_decrypt_128(aes_rk, (u32*)xor1);
 
-	sub_128_64(xor0, offset0);
-	sub_128_64(xor1, offset1);
+	u64 ctr0[2], ctr1[2];
+	byte_reverse_16((u8*)ctr0, (u8*)xor0);
+	byte_reverse_16((u8*)ctr1, (u8*)xor1);
 
-	if(xor0[0] == xor1[0] && xor0[1] == xor1[1]){
+	sub_128_64(ctr0, offset0);
+	sub_128_64(ctr1, offset1);
+
+	if(ctr0[0] == ctr1[0] && ctr0[1] == ctr1[1]){
 		*out = console_id;
 	}
 }
