@@ -71,19 +71,3 @@ inline void dsi_make_key(u64 *key, u64 console_id){
 	rol42_128(key);
 }
 
-// beware the emmc_cid got rewritten
-inline void dsi_make_ctr(u8 *ctr, u8 *emmc_cid, u64 offset) {
-	u32 buf[4];
-	GET_UINT32_BE(buf[0], emmc_cid, 0);
-	GET_UINT32_BE(buf[1], emmc_cid, 4);
-	GET_UINT32_BE(buf[2], emmc_cid, 8);
-	GET_UINT32_BE(buf[3], emmc_cid, 12);
-	sha1_16(buf);
-	PUT_UINT32_BE(buf[0], emmc_cid, 0);
-	PUT_UINT32_BE(buf[1], emmc_cid, 4);
-	PUT_UINT32_BE(buf[2], emmc_cid, 8);
-	PUT_UINT32_BE(buf[3], emmc_cid, 12);
-	add_128_64((u64*)emmc_cid, offset);
-	byte_reverse_16(ctr, emmc_cid);
-}
-
