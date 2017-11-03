@@ -8,12 +8,30 @@ __constant const uint32_t
 	h3 = 0x10325476,
 	h4 = 0xC3D2E1F0;
 
-void sha1_16(uint32_t *io)
+#define GET_UINT32_BE(n,b,i)                            \
+{                                                       \
+	(n) = ( (uint32_t) (b)[(i)    ] << 24 )             \
+		| ( (uint32_t) (b)[(i) + 1] << 16 )             \
+		| ( (uint32_t) (b)[(i) + 2] <<  8 )             \
+		| ( (uint32_t) (b)[(i) + 3]       );            \
+}
+
+#define PUT_UINT32_BE(n,b,i)                            \
+{                                                       \
+	(b)[(i)    ] = (unsigned char) ( (n) >> 24 );       \
+	(b)[(i) + 1] = (unsigned char) ( (n) >> 16 );       \
+	(b)[(i) + 2] = (unsigned char) ( (n) >>  8 );       \
+	(b)[(i) + 3] = (unsigned char) ( (n)       );       \
+}
+
+void sha1_16(unsigned char *io)
 {
 	uint32_t temp, W[16],
 		A = h0, B = h1, C = h2, D = h3, E = h4;
-
-	W[0] = io[0]; W[1] = io[1]; W[2] = io[2]; W[3] = io[3];
+	GET_UINT32_BE(W[0], io, 0);
+	GET_UINT32_BE(W[1], io, 4);
+	GET_UINT32_BE(W[2], io, 8);
+	GET_UINT32_BE(W[3], io, 12);
 	W[4] = 0x80000000u; W[5] = 0; W[6] = 0; W[7] = 0;
 	W[8] = 0; W[9] = 0; W[10] = 0; W[11] = 0;
 	W[12] = 0; W[13] = 0; W[14] = 0; W[15] = 0x80u;
@@ -149,9 +167,9 @@ void sha1_16(uint32_t *io)
 	C += h2;
 	D += h3;
 
-	io[0] = A;
-	io[1] = B;
-	io[2] = C;
-	io[3] = D;
+	PUT_UINT32_BE(A, io, 0);
+	PUT_UINT32_BE(B, io, 4);
+	PUT_UINT32_BE(C, io, 8);
+	PUT_UINT32_BE(D, io, 12);
 }
 

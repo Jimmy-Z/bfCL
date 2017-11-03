@@ -34,6 +34,33 @@ int ocl_brute_console_id(const cl_uchar *console_id, const cl_uchar *emmc_cid,
 	cl_uint offset1, const cl_uchar *src1, const cl_uchar *ver1,
 	ocl_brute_mode mode)
 {
+	// preparing args
+	cl_ulong console_id_template = u64be(console_id);
+	cl_ulong xor0[2] = { 0 }, xor1[2] = { 0 };
+	dsi_make_xor((u8*)xor0, src0, ver0);
+	if (src1 != 0) {
+		dsi_make_xor((u8*)xor1, src1, ver1);
+	}
+	cl_uint ctr[4] = { 0 };
+	if (emmc_cid != 0) {
+		dsi_make_ctr((u8*)ctr, emmc_cid, offset0);
+	}
+	cl_ulong out = 0;
+#if DEBUG
+	{
+		printf("XOR     : %s\n", hexdump(xor0, 16, 0));
+		u8 aes_key[16];
+		dsi_make_key(aes_key, u64be(console_id));
+		printf("AES KEY : %s\n", hexdump(aes_key, 16, 0));
+		aes_init();
+		aes_set_key_enc_128(aes_key);
+		printf("CTR     : %s\n", hexdump(ctr, 16, 0));
+		aes_encrypt_128((u8*)ctr, (u8*)xor0);
+		printf("XOR TRY : %s\n", hexdump(xor0, 16, 0));
+		// exit(1);
+	}
+#endif
+
 	TimeHP t0, t1; long long td = 0;
 
 	cl_int err;
@@ -72,35 +99,6 @@ int ocl_brute_console_id(const cl_uchar *console_id, const cl_uchar *emmc_cid,
 	size_t local;
 	OCL_ASSERT(clGetKernelWorkGroupInfo(kernel, device_id, CL_KERNEL_WORK_GROUP_SIZE, sizeof(local), &local, NULL));
 	printf("local work size: %u\n", (unsigned)local);
-
-	// preparing args
-	cl_ulong console_id_template = u64be(console_id);
-	cl_ulong xor0[2] = { 0 }, xor1[2] = { 0 };
-	dsi_make_xor((u8*)xor0, src0, ver0);
-	if (src1 != 0) {
-		dsi_make_xor((u8*)xor1, src1, ver1);
-	}
-	cl_uint ctr[4] = { 0 };
-	if (emmc_cid != 0) {
-		dsi_make_ctr((u8*)ctr, emmc_cid, offset0);
-	}
-	cl_ulong out = 0;
-#if DEBUG
-	{
-		printf("XOR     : %s\n", hexdump(xor, 16, 0));
-		u8 aes_key[16];
-		dsi_make_key(aes_key, u64be(console_id));
-		printf("AES KEY : %s\n", hexdump(aes_key, 16, 0));
-		cl_uint aes_rk[RK_LEN];
-		aes_gen_tables();
-		aes_set_key_enc_128(aes_rk, aes_key);
-		printf("AES RK  : %s\n", hexdump(aes_rk, 48, 0));
-		printf("CTR     : %s\n", hexdump(ctr, 16, 0));
-		aes_encrypt_128(aes_rk, (u8*)ctr, (u8*)xor);
-		printf("XOR TRY : %s\n", hexdump(xor, 16, 0));
-		// exit(1);
-	}
-#endif
 
 	// there's no option to create it zero initialized
 	cl_mem mem_out = OCL_ASSERT2(clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(cl_ulong), NULL, &err));
@@ -208,6 +206,28 @@ int ocl_brute_console_id(const cl_uchar *console_id, const cl_uchar *emmc_cid,
 int ocl_brute_emmc_cid(const cl_uchar *console_id, cl_uchar *emmc_cid,
 	cl_uint offset, const cl_uchar *src, const cl_uchar *ver)
 {
+	// preparing args
+	u8 aes_key[16];
+	dsi_make_key(aes_key, u64be(console_id));
+	aes_init();
+	aes_set_key_dec_128(aes_key);
+	cl_ulong xor[2];
+	dsi_make_xor((u8*)xor, src, ver);
+	cl_ulong ctr[2];
+	aes_decrypt_128((u8*)xor , (u8*)ctr);
+	cl_ulong emmc_cid_sha1_16[2];
+	byte_reverse_16((u8*)emmc_cid_sha1_16, (u8*)ctr);
+	sub_128_64(emmc_cid_sha1_16, offset);
+	cl_ulong out = 0;
+#ifdef DEBUG
+	{
+		printf("SHA1 A: %s\n", hexdump(emmc_cid_sha1_16, 16, 0));
+		u8 sha1_verify[16];
+		sha1_16(emmc_cid, sha1_verify);
+		printf("SHA1 B: %s\n", hexdump(sha1_verify, 16, 0));
+	}
+#endif
+
 	TimeHP t0, t1; long long td = 0;
 
 	cl_int err;
@@ -234,33 +254,6 @@ int ocl_brute_emmc_cid(const cl_uchar *console_id, cl_uchar *emmc_cid,
 	OCL_ASSERT(clGetKernelWorkGroupInfo(kernel, device_id, CL_KERNEL_WORK_GROUP_SIZE, sizeof(local), &local, NULL));
 	printf("local work size: %u\n", (unsigned)local);
 
-	// preparing args
-	u8 aes_key[16];
-	dsi_make_key(aes_key, u64be(console_id));
-	aes_init();
-	aes_set_key_dec_128(aes_key);
-	cl_ulong xor[2];
-	dsi_make_xor((u8*)xor, src, ver);
-	cl_ulong ctr[2];
-	aes_decrypt_128((u8*)xor , (u8*)ctr);
-	cl_ulong emmc_cid_sha1_16[2];
-	byte_reverse_16((u8*)emmc_cid_sha1_16, (u8*)ctr);
-	sub_128_64(emmc_cid_sha1_16, offset);
-	cl_ulong out = 0;
-#ifdef DEBUG
-	{
-		printf("XOR     : %s\n", hexdump(xor, 16, 0));
-		printf("AES KEY : %s\n", hexdump(aes_key, 16, 0));
-		printf("AES RK  : %s\n", hexdump(aes_rk, 48, 0));
-		u8 ctr[16];
-		dsi_make_ctr(ctr, emmc_cid, u_offset);
-		printf("CTR     : %s\n", hexdump(ctr, 16, 0));
-		aes_encrypt_128(aes_rk, ctr, (u8*)xor);
-		printf("XOR TRY : %s\n", hexdump(xor, 16, 0));
-		// exit(1);
-	}
-#endif
-
 	// there's no option to create it zero initialized
 	cl_mem mem_out = OCL_ASSERT2(clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(cl_ulong), NULL, &err));
 	OCL_ASSERT(clEnqueueWriteBuffer(command_queue, mem_out, CL_TRUE, 0, sizeof(cl_ulong), &out, 0, NULL, NULL));
@@ -280,8 +273,8 @@ int ocl_brute_emmc_cid(const cl_uchar *console_id, cl_uchar *emmc_cid,
 		puts(hexdump(emmc_cid, 16, 0));
 		OCL_ASSERT(clSetKernelArg(kernel, 0, sizeof(cl_ulong), emmc_cid));
 		OCL_ASSERT(clSetKernelArg(kernel, 1, sizeof(cl_ulong), emmc_cid + 8));
-		OCL_ASSERT(clSetKernelArg(kernel, 2, sizeof(cl_ulong), &emmc_cid_sha1_16[0]));
-		OCL_ASSERT(clSetKernelArg(kernel, 3, sizeof(cl_ulong), &emmc_cid_sha1_16[1]));
+		OCL_ASSERT(clSetKernelArg(kernel, 2, sizeof(cl_ulong), emmc_cid_sha1_16));
+		OCL_ASSERT(clSetKernelArg(kernel, 3, sizeof(cl_ulong), emmc_cid_sha1_16 + 1));
 		OCL_ASSERT(clSetKernelArg(kernel, 4, sizeof(cl_mem), &mem_out));
 
 		OCL_ASSERT(clEnqueueNDRangeKernel(command_queue, kernel, 1, NULL, &num_items, &local, 0, NULL, NULL));
@@ -308,7 +301,6 @@ int ocl_brute_emmc_cid(const cl_uchar *console_id, cl_uchar *emmc_cid,
 	printf("%.2f seconds, %.2f M/s\n", td / 1000000.0, tested * 1.0 / td);
 
 	clReleaseKernel(kernel);
-	clReleaseMemObject(mem_rk);
 	clReleaseMemObject(mem_out);
 	clReleaseProgram(program);
 	clReleaseCommandQueue(command_queue);

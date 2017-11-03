@@ -14,6 +14,8 @@ static inline cl_ushort u16be(const unsigned char *in){
 	return out;
 }
 
+const char invalid_parameters[] = "invalid parameters\n";
+
 int main(int argc, const char *argv[]) {
 	int ret = 0;
 	if (argc == 1) {
@@ -43,7 +45,7 @@ int main(int argc, const char *argv[]) {
 			ret = ocl_brute_console_id(console_id, 0,
 				u16be(offset0), src0, ver0, u16be(offset1), src1, ver1, CTR);
 		} else {
-			puts("invalid parameters\n");
+			puts(invalid_parameters);
 			ret = -1;
 		}
 	} else if (argc == 7) {
@@ -63,11 +65,11 @@ int main(int argc, const char *argv[]) {
 		} else if (!strcmp(argv[1], "emmc_cid")) {
 			ret = ocl_brute_emmc_cid(console_id, emmc_cid, u16be(offset), src, ver);
 		} else {
-			puts("invalid parameters\n");
+			puts(invalid_parameters);
 			ret = -1;
 		}
 	} else {
-		printf("invalid parameters\n");
+		printf(invalid_parameters);
 		ret = -1;
 	}
 #ifdef _WIN32

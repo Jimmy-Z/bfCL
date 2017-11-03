@@ -7,7 +7,7 @@ LDFLAGS += -L$(INTELOCLSDKROOT)/lib/x64
 all : $(PNAME)
 
 $(PNAME) : $(OBJS)
-	$(CC) $(LDFLAGS) -o $@ $^ -lOpenCL
+	$(CC) $(LDFLAGS) -o $@ $^ -lOpenCL -static -lmbedcrypto
 
 clean :
 	rm $(PNAME) *.o

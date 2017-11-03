@@ -77,8 +77,7 @@ int ocl_test() {
 
 	srand(2501);
 	cl_uchar key[16];
-	unsigned int aes_rk[RK_LEN];
-	aes_gen_tables();
+	aes_init();
 	for (unsigned i = 0; i < 16; ++i) {
 		key[i] = rand() & 0xff;
 	}
@@ -96,17 +95,16 @@ int ocl_test() {
 		// rand() & 0xff is about ~60 MB/s @ X230
 		// it's worse than that AES single thread C, so OFB it is
 		// ~240 MB/s, even faster than RDRAND
-		unsigned int aes_rk[RK_LEN];
 		unsigned char key_iv[16 * 2];
 		for (unsigned i = 0; i < 16 * 2; ++i) {
 			key_iv[i] = rand() & 0xff;
 		}
-		aes_set_key_enc_128(aes_rk, key_iv);
-		aes_encrypt_128(aes_rk, key_iv + 16, buf_in);
+		aes_set_key_enc_128(key_iv);
+		aes_encrypt_128(key_iv + 16, buf_in);
 		unsigned char *p_in = buf_in, *p_out = buf_in + 16,
 			*p_end = buf_in + BUF_SIZE;
 		while (p_out < p_end) {
-			aes_encrypt_128(aes_rk, p_in, p_out);
+			aes_encrypt_128(p_in, p_out);
 			p_in = p_out;
 			p_out += 16;
 		}
@@ -174,8 +172,8 @@ int ocl_test() {
 	for (unsigned offset = 0; offset < BUF_SIZE; offset += BLOCK_SIZE) {
 		// setting the same key over and over is stupid
 		// we do this to make the results comparable
-		aes_set_key_enc_128(aes_rk, key);
-		aes_encrypt_128(aes_rk, buf_in + offset, buf_verify + offset);
+		aes_set_key_enc_128(key);
+		aes_encrypt_128(buf_in + offset, buf_verify + offset);
 	}
 	get_hp_time(&t1); td = hp_time_diff(&t0, &t1);
 	printf("%.3f seconds for reference C(single thread), %.2f MB/s\n", td / 1000000.0, BUF_SIZE * 1.0f / td);
