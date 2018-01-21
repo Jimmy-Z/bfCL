@@ -1,5 +1,6 @@
 
 #include <stdio.h>
+#include <stdint.h>
 #include "utils.h"
 #include "ocl.h"
 #include "ocl_brute.h"
@@ -64,6 +65,16 @@ int main(int argc, const char *argv[]) {
 			ret = ocl_brute_console_id(console_id, emmc_cid, u16be(offset), src, ver, 0, 0, 0, CTR);
 		} else if (!strcmp(argv[1], "emmc_cid")) {
 			ret = ocl_brute_emmc_cid(console_id, emmc_cid, u16be(offset), src, ver);
+		} else {
+			puts(invalid_parameters);
+			ret = -1;
+		}
+	} else if(argc == 4){
+		uint32_t msky[4], ver[4];
+		hex2bytes((unsigned char*)msky, 16, argv[2], 1);
+		hex2bytes((unsigned char*)ver, 16, argv[3], 1);
+		if (!strcmp(argv[1], "msky")) {
+			ret = ocl_brute_msky(msky, ver);
 		} else {
 			puts(invalid_parameters);
 			ret = -1;

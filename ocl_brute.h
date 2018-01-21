@@ -13,3 +13,5 @@ int ocl_brute_console_id(const cl_uchar *console_id, const cl_uchar *emmc_cid,
 
 int ocl_brute_emmc_cid(const cl_uchar *console_id, cl_uchar *emmc_cid,
 	cl_uint offset, const cl_uchar *src, const cl_uchar *ver);
+
+int ocl_brute_msky(const cl_uint *msky, const cl_uint *ver);

@@ -308,3 +308,93 @@ int ocl_brute_emmc_cid(const cl_uchar *console_id, cl_uchar *emmc_cid,
 	return !out;
 }
 
+/* more info:
+ * https://zoogie.github.io/web/34%E2%85%95c3/#/22
+ * https://gbatemp.net/threads/eol-is-lol-the-34c3-talk-for-3ds-that-never-was.494698/
+ * what I'm doing here is simply brute the 3rd u32 of a u128 so that the first half of sha256 matches ver
+ */
+int ocl_brute_msky(const cl_uint *msky, const cl_uint *ver)
+{
+	TimeHP t0, t1; long long td = 0;
+
+	cl_int err;
+	cl_platform_id platform_id;
+	cl_device_id device_id;
+	ocl_get_device(&platform_id, &device_id);
+	if (platform_id == NULL || device_id == NULL) {
+		return -1;
+	}
+
+	cl_context context = OCL_ASSERT2(clCreateContext(0, 1, &device_id, NULL, NULL, &err));
+	cl_command_queue command_queue = OCL_ASSERT2(clCreateCommandQueue(context, device_id, 0, &err));
+
+	const char *source_names[] = {
+		"cl/common.h",
+		"cl/sha256_16.cl",
+		"cl/kernel_msky.cl" };
+	cl_program program = ocl_build_from_sources(sizeof(source_names) / sizeof(char *),
+		source_names, context, device_id, "-w -Werror");
+
+	cl_kernel kernel = OCL_ASSERT2(clCreateKernel(program, "test_msky", &err));
+
+	size_t local;
+	OCL_ASSERT(clGetKernelWorkGroupInfo(kernel, device_id, CL_KERNEL_WORK_GROUP_SIZE, sizeof(local), &local, NULL));
+	printf("local work size: %u\n", (unsigned)local);
+
+	// there's no option to create it zero initialized
+	cl_uint out = 0;
+	cl_mem mem_out = OCL_ASSERT2(clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(cl_uint), NULL, &err));
+	OCL_ASSERT(clEnqueueWriteBuffer(command_queue, mem_out, CL_TRUE, 0, sizeof(cl_uint), &out, 0, NULL, NULL));
+
+	unsigned brute_bits = 32;
+	unsigned group_bits = 28;
+	unsigned loop_bits = brute_bits - group_bits;
+	unsigned loops = 1ull << loop_bits;
+	size_t num_items = 1ull << group_bits;
+	// it needs to be aligned, a little overhead hurts nobody
+	if (num_items % local) {
+		num_items = (num_items / local + 1) * local;
+	}
+	get_hp_time(&t0);
+	for (unsigned i = 0; i < loops; ++i) {
+		printf("%d/%d\r", i + 1, loops);
+		cl_uint msky2 = i << group_bits;
+		OCL_ASSERT(clSetKernelArg(kernel, 0, sizeof(cl_uint), &msky[0]));
+		OCL_ASSERT(clSetKernelArg(kernel, 1, sizeof(cl_uint), &msky[1]));
+		OCL_ASSERT(clSetKernelArg(kernel, 2, sizeof(cl_uint), &msky2));
+		OCL_ASSERT(clSetKernelArg(kernel, 3, sizeof(cl_uint), &msky[3]));
+		OCL_ASSERT(clSetKernelArg(kernel, 4, sizeof(cl_uint), &ver[0]));
+		OCL_ASSERT(clSetKernelArg(kernel, 5, sizeof(cl_uint), &ver[1]));
+		OCL_ASSERT(clSetKernelArg(kernel, 6, sizeof(cl_uint), &ver[2]));
+		OCL_ASSERT(clSetKernelArg(kernel, 7, sizeof(cl_uint), &ver[3]));
+		OCL_ASSERT(clSetKernelArg(kernel, 8, sizeof(cl_mem), &mem_out));
+
+		OCL_ASSERT(clEnqueueNDRangeKernel(command_queue, kernel, 1, NULL, &num_items, &local, 0, NULL, NULL));
+		clFinish(command_queue);
+
+		OCL_ASSERT(clEnqueueReadBuffer(command_queue, mem_out, CL_TRUE, 0, sizeof(cl_uint), &out, 0, NULL, NULL));
+		if (out) {
+			get_hp_time(&t1); td = hp_time_diff(&t0, &t1);
+			cl_uint msky_ret[4] = { msky[0], msky[1], out, msky[3] };
+			printf("got a hit: %s\n", hexdump(msky_ret, 16, 0));
+			break;
+		}
+	}
+
+	u64 tested = 0;
+	if (!out) {
+		tested = 1ull << 32;
+		get_hp_time(&t1); td = hp_time_diff(&t0, &t1);
+	} else {
+		tested = out;
+	}
+	printf("%.2f seconds, %.2f M/s\n", td / 1000000.0, tested * 1.0 / td);
+
+	clReleaseKernel(kernel);
+	clReleaseMemObject(mem_out);
+	clReleaseProgram(program);
+	clReleaseCommandQueue(command_queue);
+	clReleaseContext(context);
+	return !out;
+}
+
