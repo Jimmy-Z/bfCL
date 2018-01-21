@@ -1,33 +1,14 @@
 
 // sha1_16 adapted for OpenCL, see "sha1_16.c" for more information
 
-__constant const uint32_t
-	h0 = 0x67452301,
-	h1 = 0xEFCDAB89,
-	h2 = 0x98BADCFE,
-	h3 = 0x10325476,
-	h4 = 0xC3D2E1F0;
-
-#define GET_UINT32_BE(n,b,i)                            \
-{                                                       \
-	(n) = ( (uint32_t) (b)[(i)    ] << 24 )             \
-		| ( (uint32_t) (b)[(i) + 1] << 16 )             \
-		| ( (uint32_t) (b)[(i) + 2] <<  8 )             \
-		| ( (uint32_t) (b)[(i) + 3]       );            \
-}
-
-#define PUT_UINT32_BE(n,b,i)                            \
-{                                                       \
-	(b)[(i)    ] = (unsigned char) ( (n) >> 24 );       \
-	(b)[(i) + 1] = (unsigned char) ( (n) >> 16 );       \
-	(b)[(i) + 2] = (unsigned char) ( (n) >>  8 );       \
-	(b)[(i) + 3] = (unsigned char) ( (n)       );       \
-}
-
 void sha1_16(unsigned char *io)
 {
 	uint32_t temp, W[16],
-		A = h0, B = h1, C = h2, D = h3, E = h4;
+		A = 0x67452301,
+		B = 0xEFCDAB89,
+		C = 0x98BADCFE,
+		D = 0x10325476,
+		E = 0xC3D2E1F0;
 	GET_UINT32_BE(W[0], io, 0);
 	GET_UINT32_BE(W[1], io, 4);
 	GET_UINT32_BE(W[2], io, 8);
@@ -162,10 +143,10 @@ void sha1_16(unsigned char *io)
 #undef R
 #undef P
 
-	A += h0;
-	B += h1;
-	C += h2;
-	D += h3;
+	A += 0x67452301;
+	B += 0xEFCDAB89;
+	C += 0x98BADCFE;
+	D += 0x10325476;
 
 	PUT_UINT32_BE(A, io, 0);
 	PUT_UINT32_BE(B, io, 4);

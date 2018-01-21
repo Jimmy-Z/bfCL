@@ -5,7 +5,7 @@
 #include "crypto.h"
 
 #define BLOCK_SIZE 0x10
-#define NUM_BLOCKS (1 << 23)
+#define NUM_BLOCKS (1 << 22)
 #define BLOCKS_PER_ITEM 1
 #define NUM_ITEMS (NUM_BLOCKS / BLOCKS_PER_ITEM)
 #define BUF_SIZE (BLOCK_SIZE * NUM_BLOCKS)
@@ -81,7 +81,7 @@ int ocl_test() {
 	for (unsigned i = 0; i < 16; ++i) {
 		key[i] = rand() & 0xff;
 	}
-	printf("AES Key: %s\n", hexdump(key, 16, 0));
+	printf("self-test/benchmark mode\nAES Key: %s\n", hexdump(key, 16, 0));
 	get_hp_time(&t0);
 	if(cpu_has_rdrand()){
 		// ~190 MB/s @ X230, ~200 without the success check
@@ -119,6 +119,7 @@ int ocl_test() {
 	const char *source_names[] = {
 		"cl/common.h",
 		"cl/sha1_16.cl",
+		// "cl/sha256_16.cl",
 		"cl/aes_tables.cl",
 		"cl/aes_128.cl",
 		"cl/kernel_tests.cl" };
