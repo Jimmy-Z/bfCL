@@ -1,23 +1,22 @@
 
 __kernel void sha1_16_test(
-	__global const unsigned char *in,
-	__global unsigned char *out)
+	__global const uint32_t *in,
+	__global uint32_t *out)
 {
 	unsigned offset = get_global_id(0) * BLOCKS_PER_ITEM * 16 / sizeof(uint32_t);
 #if BLOCKS_PER_ITEM != 1
 	for(unsigned i = 0; i < BLOCKS_PER_ITEM; ++i){
 #endif
 		uint32_t buf[4];
-		// yeah I just assume they're aligned or could be accessed unaligned
-		buf[0] = ((uint32_t*)in)[offset + 0];
-		buf[1] = ((uint32_t*)in)[offset + 1];
-		buf[2] = ((uint32_t*)in)[offset + 2];
-		buf[3] = ((uint32_t*)in)[offset + 3];
-		sha1_16(buf);
-		((uint32_t*)out)[offset + 0] = buf[0];
-		((uint32_t*)out)[offset + 1] = buf[1];
-		((uint32_t*)out)[offset + 2] = buf[2];
-		((uint32_t*)out)[offset + 3] = buf[3];
+		buf[0] = in[offset + 0];
+		buf[1] = in[offset + 1];
+		buf[2] = in[offset + 2];
+		buf[3] = in[offset + 3];
+		sha1_16((unsigned char*)buf);
+		out[offset + 0] = buf[0];
+		out[offset + 1] = buf[1];
+		out[offset + 2] = buf[2];
+		out[offset + 3] = buf[3];
 #if BLOCKS_PER_ITEM != 1
 		offset += 16;
 	}

@@ -184,7 +184,7 @@ void ocl_get_device(cl_platform_id *p_platform_id, cl_device_id *p_device_id) {
 				&& strcmp((const char*)devices[j].name, "Capeverde")
 #endif
 				&& (cl_ulong)devices[j].max_compute_units * devices[j].max_work_group_size > maximum) {
-				maximum = devices[j].max_compute_units;
+				maximum = (cl_ulong)devices[j].max_compute_units * devices[j].max_work_group_size;
 				pl_idx = i;
 				dev_idx = j;
 			}
