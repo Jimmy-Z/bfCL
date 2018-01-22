@@ -179,14 +179,17 @@ void ocl_get_device(cl_platform_id *p_platform_id, cl_device_id *p_device_id) {
 #else
 			if (devices[j].type == CL_DEVICE_TYPE_GPU
 #endif
-				&& devices[j].c_avail == CL_TRUE
-#ifdef ENABLE_GPU_BLACKLIST
-				&& strcmp((const char*)devices[j].name, "Capeverde")
-#endif
-				&& (cl_ulong)devices[j].max_compute_units * devices[j].max_work_group_size > maximum) {
-				maximum = (cl_ulong)devices[j].max_compute_units * devices[j].max_work_group_size;
-				pl_idx = i;
-				dev_idx = j;
+				&& devices[j].c_avail == CL_TRUE){
+				cl_ulong cap = 1ull * devices[j].max_compute_units * devices[j].freq;
+				// unfortunately that metric is not comparable between different vendors
+				if (strstr((const char*)devices[j].name, "Intel")) {
+					cap /= 4;
+				}
+				if (cap > maximum) {
+					maximum = cap;
+					pl_idx = i;
+					dev_idx = j;
+				}
 			}
 		}
 	}
@@ -196,7 +199,7 @@ void ocl_get_device(cl_platform_id *p_platform_id, cl_device_id *p_device_id) {
 		*p_platform_id = platforms[pl_idx].id;
 		*p_device_id = platforms[pl_idx].devices[dev_idx].id;
 	} else {
-		fprintf(stderr, "no openCL capable GPU found\n");
+		fprintf(stderr, "no OpenCL capable GPU found\n");
 		*p_platform_id = NULL;
 		*p_device_id = NULL;
 	}
