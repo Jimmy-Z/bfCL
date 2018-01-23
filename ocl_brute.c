@@ -355,38 +355,45 @@ int ocl_brute_msky(const cl_uint *msky, const cl_uint *ver)
 	if (num_items % local) {
 		num_items = (num_items / local + 1) * local;
 	}
+	OCL_ASSERT(clSetKernelArg(kernel, 0, sizeof(cl_uint), &msky[0]));
+	OCL_ASSERT(clSetKernelArg(kernel, 1, sizeof(cl_uint), &msky[1]));
+	OCL_ASSERT(clSetKernelArg(kernel, 4, sizeof(cl_uint), &ver[0]));
+	OCL_ASSERT(clSetKernelArg(kernel, 5, sizeof(cl_uint), &ver[1]));
+	OCL_ASSERT(clSetKernelArg(kernel, 6, sizeof(cl_uint), &ver[2]));
+	OCL_ASSERT(clSetKernelArg(kernel, 7, sizeof(cl_uint), &ver[3]));
+	OCL_ASSERT(clSetKernelArg(kernel, 8, sizeof(cl_mem), &mem_out));
 	get_hp_time(&t0);
-	for (unsigned i = 0; i < loops; ++i) {
-		printf("%d/%d\r", i + 1, loops);
-		cl_uint msky2 = i << group_bits;
-		OCL_ASSERT(clSetKernelArg(kernel, 0, sizeof(cl_uint), &msky[0]));
-		OCL_ASSERT(clSetKernelArg(kernel, 1, sizeof(cl_uint), &msky[1]));
-		OCL_ASSERT(clSetKernelArg(kernel, 2, sizeof(cl_uint), &msky2));
-		OCL_ASSERT(clSetKernelArg(kernel, 3, sizeof(cl_uint), &msky[3]));
-		OCL_ASSERT(clSetKernelArg(kernel, 4, sizeof(cl_uint), &ver[0]));
-		OCL_ASSERT(clSetKernelArg(kernel, 5, sizeof(cl_uint), &ver[1]));
-		OCL_ASSERT(clSetKernelArg(kernel, 6, sizeof(cl_uint), &ver[2]));
-		OCL_ASSERT(clSetKernelArg(kernel, 7, sizeof(cl_uint), &ver[3]));
-		OCL_ASSERT(clSetKernelArg(kernel, 8, sizeof(cl_mem), &mem_out));
+	int msky3_range = 16384; // "fan out" +/-8192 on msky3
+	unsigned i, j;
+	for (j = 0; j < msky3_range; ++j) {
+		cl_uint msky3 = msky[3] + (j & 1 ? 1 : -1) * ((j + 1) >> 1);
+		printf("%08x\r", msky3);
+		for (i = 0; i < loops; ++i) {
+			cl_uint msky2 = i << group_bits;
+			OCL_ASSERT(clSetKernelArg(kernel, 2, sizeof(cl_uint), &msky2));
+			OCL_ASSERT(clSetKernelArg(kernel, 3, sizeof(cl_uint), &msky3));
 
-		OCL_ASSERT(clEnqueueNDRangeKernel(command_queue, kernel, 1, NULL, &num_items, &local, 0, NULL, NULL));
-		clFinish(command_queue);
+			OCL_ASSERT(clEnqueueNDRangeKernel(command_queue, kernel, 1, NULL, &num_items, &local, 0, NULL, NULL));
+			clFinish(command_queue);
 
-		OCL_ASSERT(clEnqueueReadBuffer(command_queue, mem_out, CL_TRUE, 0, sizeof(cl_uint), &out, 0, NULL, NULL));
+			OCL_ASSERT(clEnqueueReadBuffer(command_queue, mem_out, CL_TRUE, 0, sizeof(cl_uint), &out, 0, NULL, NULL));
+			if (out) {
+				get_hp_time(&t1); td = hp_time_diff(&t0, &t1);
+				cl_uint msky_ret[4] = { msky[0], msky[1], out, msky[3] };
+				printf("got a hit: %s\n", hexdump(msky_ret, 16, 0));
+				break;
+			}
+		}
 		if (out) {
-			get_hp_time(&t1); td = hp_time_diff(&t0, &t1);
-			cl_uint msky_ret[4] = { msky[0], msky[1], out, msky[3] };
-			printf("got a hit: %s\n", hexdump(msky_ret, 16, 0));
 			break;
 		}
 	}
-
 	u64 tested = 0;
 	if (!out) {
-		tested = 1ull << 32;
+		tested = (1ull << brute_bits) * msky3_range;
 		get_hp_time(&t1); td = hp_time_diff(&t0, &t1);
 	} else {
-		tested = out;
+		tested = out + (1ull << brute_bits) * j;
 	}
 	printf("%.2f seconds, %.2f M/s\n", td / 1000000.0, tested * 1.0 / td);
 
