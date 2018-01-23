@@ -26,7 +26,7 @@
 
 // the caller is responsible to put the key in rk
 void aes_set_key_enc_128(uint32_t rk[RK_LEN]) {
-	uint32_t *RK = rk;
+	uint32_t *RK = (uint32_t *)rk;
 
 	for (unsigned i = 0; i < 10; ++i, RK += 4) {
 		RK[4] = RK[0] ^ RCON[i] ^
@@ -43,7 +43,7 @@ void aes_set_key_enc_128(uint32_t rk[RK_LEN]) {
 
 void aes_set_key_dec_128(uint32_t rk[RK_LEN]) {
 	uint32_t sk[RK_LEN];
-	uint32_t *RK = rk, *SK = sk;
+	uint32_t *RK =  (uint32_t *)rk, *SK =  (uint32_t *)sk;
 
 	*SK++ = *RK++;
 	*SK++ = *RK++;
@@ -52,7 +52,7 @@ void aes_set_key_dec_128(uint32_t rk[RK_LEN]) {
 
 	aes_set_key_enc_128(sk);
 
-	RK = rk;
+	RK =  (uint32_t *)rk;
 	SK = sk + 40;
 
 	*RK++ = *SK++;
@@ -123,7 +123,7 @@ void aes_set_key_dec_128(uint32_t rk[RK_LEN]) {
 }
 
 void aes_encrypt_128(const uint32_t rk[RK_LEN], uint32_t *io) {
-	const uint32_t *RK = rk;
+	const uint32_t *RK =  (uint32_t *)rk;
 	uint32_t Y0, Y1, Y2, Y3,
 		X0 = io[0] ^ *RK++,
 		X1 = io[1] ^ *RK++,
@@ -173,7 +173,7 @@ void aes_encrypt_128(const uint32_t rk[RK_LEN], uint32_t *io) {
 }
 
 void aes_decrypt_128(const uint32_t rk[RK_LEN], uint32_t *io) {
-	const uint32_t *RK = rk;
+	const uint32_t *RK =  (uint32_t *)rk;
 	uint32_t Y0, Y1, Y2, Y3,
 		X0 = io[0] ^ *RK++,
 		X1 = io[1] ^ *RK++,
