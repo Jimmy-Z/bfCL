@@ -379,7 +379,7 @@ int ocl_brute_msky(const cl_uint *msky, const cl_uint *ver)
 			OCL_ASSERT(clEnqueueReadBuffer(command_queue, mem_out, CL_TRUE, 0, sizeof(cl_uint), &out, 0, NULL, NULL));
 			if (out) {
 				get_hp_time(&t1); td = hp_time_diff(&t0, &t1);
-				cl_uint msky_ret[4] = { msky[0], msky[1], out, msky[3] };
+				cl_uint msky_ret[4] = { msky[0], msky[1], out, msky3 };
 				printf("got a hit: %s\n", hexdump(msky_ret, 16, 0));
 				break;
 			}
