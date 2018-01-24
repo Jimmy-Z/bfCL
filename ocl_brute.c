@@ -143,6 +143,22 @@ int ocl_brute_console_id(const cl_uchar *console_id, const cl_uchar *emmc_cid,
 	// printf("total: %I64u, 0x%I64x\n", total, total);
 	// printf("num_items: %I64u, 0x%I64x\n", num_items, num_items);
 	// printf("steps: %u, 0x%x\n", steps, steps);
+	OCL_ASSERT(clSetKernelArg(kernel, 7, sizeof(cl_mem), &mem_out));
+	if (emmc_cid != 0) {
+		OCL_ASSERT(clSetKernelArg(kernel, 1, sizeof(cl_uint), &ctr[0]));
+		OCL_ASSERT(clSetKernelArg(kernel, 2, sizeof(cl_uint), &ctr[1]));
+		OCL_ASSERT(clSetKernelArg(kernel, 3, sizeof(cl_uint), &ctr[2]));
+		OCL_ASSERT(clSetKernelArg(kernel, 4, sizeof(cl_uint), &ctr[3]));
+		OCL_ASSERT(clSetKernelArg(kernel, 5, sizeof(cl_ulong), &xor0[0]));
+		OCL_ASSERT(clSetKernelArg(kernel, 6, sizeof(cl_ulong), &xor0[1]));
+	} else {
+		OCL_ASSERT(clSetKernelArg(kernel, 1, sizeof(cl_uint), &offset0));
+		OCL_ASSERT(clSetKernelArg(kernel, 2, sizeof(cl_ulong), &xor0[0]));
+		OCL_ASSERT(clSetKernelArg(kernel, 3, sizeof(cl_ulong), &xor0[1]));
+		OCL_ASSERT(clSetKernelArg(kernel, 4, sizeof(cl_uint), &offset1));
+		OCL_ASSERT(clSetKernelArg(kernel, 5, sizeof(cl_ulong), &xor1[0]));
+		OCL_ASSERT(clSetKernelArg(kernel, 6, sizeof(cl_ulong), &xor1[1]));
+	}
 	get_hp_time(&t0);
 	for (unsigned i = 0; i < loops; ++i) {
 		cl_ulong console_id = console_id_template;
@@ -153,22 +169,6 @@ int ocl_brute_console_id(const cl_uchar *console_id, const cl_uchar *emmc_cid,
 		}
 		printf("%016"LL"x\n", console_id);
 		OCL_ASSERT(clSetKernelArg(kernel, 0, sizeof(cl_ulong), &console_id));
-		OCL_ASSERT(clSetKernelArg(kernel, 7, sizeof(cl_mem), &mem_out));
-		if (emmc_cid != 0) {
-			OCL_ASSERT(clSetKernelArg(kernel, 1, sizeof(cl_uint), &ctr[0]));
-			OCL_ASSERT(clSetKernelArg(kernel, 2, sizeof(cl_uint), &ctr[1]));
-			OCL_ASSERT(clSetKernelArg(kernel, 3, sizeof(cl_uint), &ctr[2]));
-			OCL_ASSERT(clSetKernelArg(kernel, 4, sizeof(cl_uint), &ctr[3]));
-			OCL_ASSERT(clSetKernelArg(kernel, 5, sizeof(cl_ulong), &xor0[0]));
-			OCL_ASSERT(clSetKernelArg(kernel, 6, sizeof(cl_ulong), &xor0[1]));
-		} else {
-			OCL_ASSERT(clSetKernelArg(kernel, 1, sizeof(cl_uint), &offset0));
-			OCL_ASSERT(clSetKernelArg(kernel, 2, sizeof(cl_ulong), &xor0[0]));
-			OCL_ASSERT(clSetKernelArg(kernel, 3, sizeof(cl_ulong), &xor0[1]));
-			OCL_ASSERT(clSetKernelArg(kernel, 4, sizeof(cl_uint), &offset1));
-			OCL_ASSERT(clSetKernelArg(kernel, 5, sizeof(cl_ulong), &xor1[0]));
-			OCL_ASSERT(clSetKernelArg(kernel, 6, sizeof(cl_ulong), &xor1[1]));
-		}
 
 		OCL_ASSERT(clEnqueueNDRangeKernel(command_queue, kernel, 1, NULL, &num_items, &local, 0, NULL, NULL));
 		clFinish(command_queue);
@@ -267,15 +267,15 @@ int ocl_brute_emmc_cid(const cl_uchar *console_id, cl_uchar *emmc_cid,
 	if (num_items % local) {
 		num_items = (num_items / local + 1) * local;
 	}
+	OCL_ASSERT(clSetKernelArg(kernel, 2, sizeof(cl_ulong), emmc_cid_sha1_16));
+	OCL_ASSERT(clSetKernelArg(kernel, 3, sizeof(cl_ulong), emmc_cid_sha1_16 + 1));
+	OCL_ASSERT(clSetKernelArg(kernel, 4, sizeof(cl_mem), &mem_out));
 	get_hp_time(&t0);
 	for (unsigned i = 0; i < loops; ++i) {
 		*(u32*)(emmc_cid + 1) = i << group_bits;
 		puts(hexdump(emmc_cid, 16, 0));
 		OCL_ASSERT(clSetKernelArg(kernel, 0, sizeof(cl_ulong), emmc_cid));
 		OCL_ASSERT(clSetKernelArg(kernel, 1, sizeof(cl_ulong), emmc_cid + 8));
-		OCL_ASSERT(clSetKernelArg(kernel, 2, sizeof(cl_ulong), emmc_cid_sha1_16));
-		OCL_ASSERT(clSetKernelArg(kernel, 3, sizeof(cl_ulong), emmc_cid_sha1_16 + 1));
-		OCL_ASSERT(clSetKernelArg(kernel, 4, sizeof(cl_mem), &mem_out));
 
 		OCL_ASSERT(clEnqueueNDRangeKernel(command_queue, kernel, 1, NULL, &num_items, &local, 0, NULL, NULL));
 		clFinish(command_queue);
@@ -368,10 +368,10 @@ int ocl_brute_msky(const cl_uint *msky, const cl_uint *ver)
 	for (j = 0; j < msky3_range; ++j) {
 		cl_uint msky3 = msky[3] + (j & 1 ? 1 : -1) * ((j + 1) >> 1);
 		printf("%08x\r", msky3);
+		OCL_ASSERT(clSetKernelArg(kernel, 3, sizeof(cl_uint), &msky3));
 		for (i = 0; i < loops; ++i) {
 			cl_uint msky2 = i << group_bits;
 			OCL_ASSERT(clSetKernelArg(kernel, 2, sizeof(cl_uint), &msky2));
-			OCL_ASSERT(clSetKernelArg(kernel, 3, sizeof(cl_uint), &msky3));
 
 			OCL_ASSERT(clEnqueueNDRangeKernel(command_queue, kernel, 1, NULL, &num_items, &local, 0, NULL, NULL));
 			clFinish(command_queue);

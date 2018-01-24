@@ -18,7 +18,7 @@ void ocl_test_run_and_read(const char * test_name, cl_kernel kernel,
 	TimeHP t0, t1; long long td;
 	size_t local;
 	OCL_ASSERT(clGetKernelWorkGroupInfo(kernel, device_id, CL_KERNEL_WORK_GROUP_SIZE, sizeof(local), &local, NULL));
-	printf("local work size: %u\n", (unsigned)local);
+	// printf("local work size: %u\n", (unsigned)local);
 
 	size_t num_items = NUM_ITEMS;
 
