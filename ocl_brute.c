@@ -457,7 +457,7 @@ int ocl_brute_lfcs(cl_uint lfcs_template, cl_ushort newflag, const cl_uint *ver)
 	unsigned i, j;
 	for (j = 0; j < fan_range; ++j) {
 		int fan = (j & 1 ? 1 : -1) * ((j + 1) >> 1);
-		printf("%d\r", fan);
+		printf("%d \r", fan);
 		for (i = 0; i < loops; ++i) {
 			cl_uint lfcs = lfcs_template + fan * 0x10000 + (i << (group_bits - 16));
 			OCL_ASSERT(clSetKernelArg(kernel, 0, sizeof(cl_uint), &lfcs));
@@ -469,7 +469,7 @@ int ocl_brute_lfcs(cl_uint lfcs_template, cl_ushort newflag, const cl_uint *ver)
 			if (out) {
 				get_hp_time(&t1); td = hp_time_diff(&t0, &t1);
 				lfcs += out >> 16;
-				printf("got a hit: %s\n", hexdump(&lfcs, 4, 0));
+				printf("got a hit: %s (rand: 0x%04x)\n", hexdump(&lfcs, 4, 0), out & 0xffff);
 				break;
 			}
 		}
