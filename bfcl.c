@@ -69,16 +69,18 @@ int main(int argc, const char *argv[]) {
 			puts(invalid_parameters);
 			ret = -1;
 		}
-	} else if(argc == 4){
+	} else if(argc == 4 && !strcmp(argv[1], "msky")){
 		uint32_t msky[4], ver[4];
 		hex2bytes((unsigned char*)msky, 16, argv[2], 1);
 		hex2bytes((unsigned char*)ver, 16, argv[3], 1);
-		if (!strcmp(argv[1], "msky")) {
-			ret = ocl_brute_msky(msky, ver);
-		} else {
-			puts(invalid_parameters);
-			ret = -1;
-		}
+		ret = ocl_brute_msky(msky, ver);
+	} else if(argc == 5 && !strcmp(argv[1], "lfcs")){
+		uint32_t lfcs, ver[2];
+		uint16_t newflag;
+		hex2bytes((unsigned char*)&lfcs, 4, argv[2], 1);
+		hex2bytes((unsigned char*)&newflag, 2, argv[3], 1);
+		hex2bytes((unsigned char*)ver, 8, argv[4], 1);
+		ret = ocl_brute_lfcs(lfcs, newflag, ver);
 	} else {
 		printf(invalid_parameters);
 		ret = -1;

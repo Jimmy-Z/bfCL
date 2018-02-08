@@ -333,7 +333,7 @@ int ocl_brute_msky(const cl_uint *msky, const cl_uint *ver)
 		"cl/sha256_16.cl",
 		"cl/kernel_msky.cl" };
 	cl_program program = ocl_build_from_sources(sizeof(source_names) / sizeof(char *),
-		source_names, context, device_id, "-w -Werror");
+		source_names, context, device_id, "-w -Werror -DSHA256_16");
 
 	cl_kernel kernel = OCL_ASSERT2(clCreateKernel(program, "test_msky", &err));
 
@@ -391,6 +391,95 @@ int ocl_brute_msky(const cl_uint *msky, const cl_uint *ver)
 	u64 tested = 0;
 	if (!out) {
 		tested = (1ull << brute_bits) * msky3_range;
+		get_hp_time(&t1); td = hp_time_diff(&t0, &t1);
+	} else {
+		tested = out + (1ull << brute_bits) * j;
+	}
+	printf("%.2f seconds, %.2f M/s\n", td / 1000000.0, tested * 1.0 / td);
+
+	clReleaseKernel(kernel);
+	clReleaseMemObject(mem_out);
+	clReleaseProgram(program);
+	clReleaseCommandQueue(command_queue);
+	clReleaseContext(context);
+	return !out;
+}
+
+// LFCS brute force, https://gist.github.com/zoogie/4046726878dba89eddfa1fc07c8a27da
+int ocl_brute_lfcs(cl_uint lfcs_template, cl_ushort newflag, const cl_uint *ver)
+{
+	TimeHP t0, t1; long long td = 0;
+
+	cl_int err;
+	cl_platform_id platform_id;
+	cl_device_id device_id;
+	ocl_get_device(&platform_id, &device_id);
+	if (platform_id == NULL || device_id == NULL) {
+		return -1;
+	}
+
+	cl_context context = OCL_ASSERT2(clCreateContext(0, 1, &device_id, NULL, NULL, &err));
+	cl_command_queue command_queue = OCL_ASSERT2(clCreateCommandQueue(context, device_id, 0, &err));
+
+	const char *source_names[] = {
+		"cl/common.h",
+		"cl/sha256_16.cl",
+		"cl/kernel_lfcs.cl" };
+	cl_program program = ocl_build_from_sources(sizeof(source_names) / sizeof(char *),
+		source_names, context, device_id, "-w -Werror -DSHA256_12");
+
+	cl_kernel kernel = OCL_ASSERT2(clCreateKernel(program, "test_lfcs", &err));
+
+	size_t local;
+	OCL_ASSERT(clGetKernelWorkGroupInfo(kernel, device_id, CL_KERNEL_WORK_GROUP_SIZE, sizeof(local), &local, NULL));
+	printf("local work size: %u\n", (unsigned)local);
+
+	// there's no option to create it zero initialized
+	cl_uint out = 0;
+	cl_mem mem_out = OCL_ASSERT2(clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(cl_uint), NULL, &err));
+	OCL_ASSERT(clEnqueueWriteBuffer(command_queue, mem_out, CL_TRUE, 0, sizeof(cl_uint), &out, 0, NULL, NULL));
+
+	unsigned brute_bits = 32;
+	unsigned group_bits = 28;
+	unsigned loop_bits = brute_bits - group_bits;
+	unsigned loops = 1ull << loop_bits;
+	size_t num_items = 1ull << group_bits;
+	// it needs to be aligned, a little overhead hurts nobody
+	if (num_items % local) {
+		num_items = (num_items / local + 1) * local;
+	}
+	OCL_ASSERT(clSetKernelArg(kernel, 1, sizeof(cl_ushort), &newflag));
+	OCL_ASSERT(clSetKernelArg(kernel, 2, sizeof(cl_uint), &ver[0]));
+	OCL_ASSERT(clSetKernelArg(kernel, 3, sizeof(cl_uint), &ver[1]));
+	OCL_ASSERT(clSetKernelArg(kernel, 4, sizeof(cl_mem), &mem_out));
+	get_hp_time(&t0);
+	int fan_range = 0x10000; // "fan out" full 16 bits
+	unsigned i, j;
+	for (j = 0; j < fan_range; ++j) {
+		int fan = (j & 1 ? 1 : -1) * ((j + 1) >> 1);
+		printf("%d\r", fan);
+		for (i = 0; i < loops; ++i) {
+			cl_uint lfcs = lfcs_template + fan * 0x10000 + (i << (group_bits - 16));
+			OCL_ASSERT(clSetKernelArg(kernel, 0, sizeof(cl_uint), &lfcs));
+
+			OCL_ASSERT(clEnqueueNDRangeKernel(command_queue, kernel, 1, NULL, &num_items, &local, 0, NULL, NULL));
+			clFinish(command_queue);
+
+			OCL_ASSERT(clEnqueueReadBuffer(command_queue, mem_out, CL_TRUE, 0, sizeof(cl_uint), &out, 0, NULL, NULL));
+			if (out) {
+				get_hp_time(&t1); td = hp_time_diff(&t0, &t1);
+				lfcs += out >> 16;
+				printf("got a hit: %s\n", hexdump(&lfcs, 4, 0));
+				break;
+			}
+		}
+		if (out) {
+			break;
+		}
+	}
+	u64 tested = 0;
+	if (!out) {
+		tested = (1ull << brute_bits) * fan_range;
 		get_hp_time(&t1); td = hp_time_diff(&t0, &t1);
 	} else {
 		tested = out + (1ull << brute_bits) * j;

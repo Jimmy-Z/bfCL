@@ -1,5 +1,5 @@
-/* sha256_16
- * again specialized to only take 16 bytes input and spit out the first 16 bytes
+/* sha256_16/12
+ * again specialized to only take 16/12 bytes input and spit out the first 16/last 8 bytes
  * again code dug out from mbed TLS
  * https://github.com/ARMmbed/mbedtls/blob/development/library/sha256.c
  */
@@ -49,7 +49,11 @@ __constant const uint32_t K[] =
     d += temp1; h = temp1 + temp2;              \
 }
 
+#ifdef SHA256_16
 void sha256_16(unsigned char *io)
+#elif defined SHA256_12
+void sha256_12(unsigned char *io)
+#endif
 {
 	uint32_t temp1, temp2, W[64];
 	uint32_t A[8] = {
@@ -64,14 +68,25 @@ void sha256_16(unsigned char *io)
 	};
 	unsigned int i;
 
-	// padding and msglen identical to sha1_16
+	// padding and msglen identical/similar to sha1_16
 	GET_UINT32_BE(W[0], io, 0);
 	GET_UINT32_BE(W[1], io, 4);
 	GET_UINT32_BE(W[2], io, 8);
+#ifdef SHA256_16
 	GET_UINT32_BE(W[3], io, 12);
-	W[4] = 0x80000000u; W[5] = 0; W[6] = 0; W[7] = 0;
+	W[4] = 0x80000000u;
+#elif defined SHA256_12
+	W[3] = 0x80000000u;
+	W[4] = 0;
+#endif
+	W[5] = 0; W[6] = 0; W[7] = 0;
 	W[8] = 0; W[9] = 0; W[10] = 0; W[11] = 0;
-	W[12] = 0; W[13] = 0; W[14] = 0; W[15] = 0x80u;
+	W[12] = 0; W[13] = 0; W[14] = 0;
+#ifdef SHA256_16
+	W[15] = 0x80u;
+#elif defined SHA256_12
+	W[15] = 0x60u;
+#endif
 
 	for (i = 0; i < 16; i += 8)
 	{
@@ -97,6 +112,7 @@ void sha256_16(unsigned char *io)
 		P(A[1], A[2], A[3], A[4], A[5], A[6], A[7], A[0], R(i + 7), K[i + 7]);
 	}
 
+#ifdef SHA256_16
 	A[0] += 0x6A09E667;
 	A[1] += 0xBB67AE85;
 	A[2] += 0x3C6EF372;
@@ -106,4 +122,11 @@ void sha256_16(unsigned char *io)
 	PUT_UINT32_BE(A[1], io, 4);
 	PUT_UINT32_BE(A[2], io, 8);
 	PUT_UINT32_BE(A[3], io, 12);
+#elif defined SHA256_12
+	A[6] += 0x1F83D9AB;
+	A[7] += 0x5BE0CD19;
+
+	PUT_UINT32_BE(A[6], io, 0);
+	PUT_UINT32_BE(A[7], io, 4);
+#endif
 }
