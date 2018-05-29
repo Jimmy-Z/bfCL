@@ -182,8 +182,10 @@ void ocl_get_device(cl_platform_id *p_platform_id, cl_device_id *p_device_id) {
 				&& devices[j].c_avail == CL_TRUE){
 				cl_ulong cap = 1ull * devices[j].max_compute_units * devices[j].freq;
 				// unfortunately that metric is not comparable between different vendors
-				if (strstr((const char*)devices[j].name, "Intel") == 0) {
+				if (strstr((const char*)devices[j].vendor, "Advanced Micro Devices") != 0) {
 					cap *= 64;
+				} else if(strstr((const char*)devices[j].vendor, "NVIDIA") != 0) {
+					cap *= 128;
 				}
 				if (cap > maximum) {
 					maximum = cap;

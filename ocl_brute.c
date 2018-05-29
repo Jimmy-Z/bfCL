@@ -127,7 +127,8 @@ int ocl_brute_console_id(const cl_uchar *console_id, const cl_uchar *emmc_cid,
 		// I wish we could use 1e10 in C, counting 0 is not good to your eye
 		total = from_bcd(1ull << 40);
 		// work items variations on lower bits per enqueue, 8 + 1 digits, including the known digit
-		group_bits = 36;
+		// reduced from 36 to 28 to make nvidia runtime happy
+		group_bits = 28;
 		// work items per enqueue, don't count the known digit here
 		num_items = from_bcd(1ull << (group_bits - 4));
 		// between the template bits and group bits, it's the loop bits
@@ -347,7 +348,7 @@ int ocl_brute_msky(const cl_uint *msky, const cl_uint *ver)
 	OCL_ASSERT(clEnqueueWriteBuffer(command_queue, mem_out, CL_TRUE, 0, sizeof(cl_uint), &out, 0, NULL, NULL));
 
 	unsigned brute_bits = 32;
-	unsigned group_bits = 28;
+	unsigned group_bits = 20;
 	unsigned loop_bits = brute_bits - group_bits;
 	unsigned loops = 1ull << loop_bits;
 	size_t num_items = 1ull << group_bits;
@@ -440,7 +441,7 @@ int ocl_brute_lfcs(cl_uint lfcs_template, cl_ushort newflag, const cl_uint *ver)
 	OCL_ASSERT(clEnqueueWriteBuffer(command_queue, mem_out, CL_TRUE, 0, sizeof(cl_uint), &out, 0, NULL, NULL));
 
 	unsigned brute_bits = 32;
-	unsigned group_bits = 28;
+	unsigned group_bits = 20;
 	unsigned loop_bits = brute_bits - group_bits;
 	unsigned loops = 1ull << loop_bits;
 	size_t num_items = 1ull << group_bits;

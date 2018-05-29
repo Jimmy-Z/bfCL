@@ -2,10 +2,10 @@
 // more about this: https://github.com/Jimmy-Z/TWLbf/blob/master/dsi.c
 
 __constant static const u64 DSi_KEY_Y[2] =
-	{0xbd4dc4d30ab9dc76ull, 0xe1a00005202ddd1dull};
+	{0xbd4dc4d30ab9dc76ul, 0xe1a00005202ddd1dul};
 
 __constant static const u64 DSi_KEY_MAGIC[2] =
-	{0x2a680f5f1a4f3e79ull, 0xfffefb4e29590258ull};
+	{0x2a680f5f1a4f3e79ul, 0xfffefb4e29590258ul};
 
 // CAUTION this one doesn't work in-place
 inline void byte_reverse_16(u8 *out, const u8 *in){
