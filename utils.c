@@ -1,3 +1,6 @@
+#ifndef _WIN32
+#define _POSIX_C_SOURCE 199309L
+#endif
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -76,14 +79,14 @@ long long hp_time_diff(LARGE_INTEGER *pt0, LARGE_INTEGER *pt1) {
 
 #else
 
-void get_hp_time(struct timeval *pt) {
-	gettimeofday(pt, NULL);
+void get_hp_time(struct timespec *pt) {
+	clock_gettime(CLOCK_MONOTONIC, pt);
 }
 
-long long hp_time_diff(struct timeval *pt0, struct timeval *pt1) {
-	long long diff = pt1.tv_sec - pt0.tv_sec;
+long long hp_time_diff(struct timespec *pt0, struct timespec *pt1) {
+	long long diff = pt1->tv_sec - pt0->tv_sec;
 	diff *= 1000000;
-	diff += pt1.tv_usec - pt0.tv_usec;
+	diff += (pt1->tv_nsec - pt0->tv_nsec) / 1000;
 	return diff;
 }
 

@@ -168,7 +168,7 @@ int ocl_brute_console_id(const cl_uchar *console_id, const cl_uchar *emmc_cid,
 		} else {
 			console_id |= (u64)i << group_bits;
 		}
-		printf("%016"LL"x\n", console_id);
+		printf("%016"LL"x\n", (unsigned long long) console_id);
 		OCL_ASSERT(clSetKernelArg(kernel, 0, sizeof(cl_ulong), &console_id));
 
 		OCL_ASSERT(clEnqueueNDRangeKernel(command_queue, kernel, 1, NULL, &num_items, &local, 0, NULL, NULL));
@@ -177,7 +177,7 @@ int ocl_brute_console_id(const cl_uchar *console_id, const cl_uchar *emmc_cid,
 		OCL_ASSERT(clEnqueueReadBuffer(command_queue, mem_out, CL_TRUE, 0, sizeof(cl_ulong), &out, 0, NULL, NULL));
 		if (out) {
 			get_hp_time(&t1); td = hp_time_diff(&t0, &t1);
-			printf("got a hit: %016"LL"x\n", out);
+			printf("got a hit: %016"LL"x\n", (unsigned long long) out);
 			// also write to a file
 			dump_to_file(emmc_cid ? hexdump(emmc_cid, 16, 0) : hexdump(src0, 16, 0), &out, 8);
 			break;
