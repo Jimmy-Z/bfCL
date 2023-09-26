@@ -1,5 +1,6 @@
 
 #include <stdio.h>
+#include <string.h>
 #include "utils.h"
 #include "ocl.h"
 #include "crypto.h"
@@ -86,7 +87,7 @@ int ocl_test() {
 	if(cpu_has_rdrand()){
 		// ~190 MB/s @ X230, ~200 without the success check
 		printf("randomize source buffer using RDRAND\n");
-		if (!rdrand_fill((cl_ulong*)buf_in, BUF_SIZE >> 3)) {
+		if (!rdrand_fill((unsigned long long*)buf_in, BUF_SIZE >> 3)) {
 			printf("RDRND failed\n");
 			exit(-1);
 		}
