@@ -12,8 +12,8 @@ typedef LARGE_INTEGER TimeHP;
 
 #else
 
-#include <sys/time.h>
-typedef struct timeval TimeHP;
+#include <time.h>
+typedef struct timespec TimeHP;
 void get_hp_time(TimeHP *pt);
 
 #define LL "ll"
